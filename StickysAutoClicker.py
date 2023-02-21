@@ -9,18 +9,20 @@ ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
 import pyautogui
 pyautogui.FAILSAFE = False
 import threading
+from pynput import keyboard
+from pynput.keyboard import Key, Listener
+from os.path import exists
+
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import simpledialog
 from tkinter.messagebox import askyesno
-from pynput import keyboard
-from os.path import exists
 
 
 # TODO: Export crash reports
-# TODO: Make pretty
+# TODO: Make prettier
 
 """
 Sticky's Autoclicker Documentation
@@ -45,7 +47,7 @@ build with "pyinstaller --onefile --noconsole StickysAutoClicker.py"
 
 usabilityNotes = ("                 Usability Notes\n\n"
                   " - Selecting any row of a macro will auto-populate the X and Y positions, delay and action fields with the values of that row, overwriting anything previously entered.\n"
-                  " - Shift + Ctrl + ` will set loops to 0 and stop the autoclicker immediately."
+                  " - Shift + Ctrl + ` will set loops to 0 and stop the autoclicker immediately.\n"
                   " - Overwrite will set all selected rows to the current X, Y, delay and action values.\n"
                   " - Macros are exported as csv files that are writes to folder '\Macros' in exe directory.\n"
                   " - Exported Files are kept up to date with each edit created.\n"
@@ -55,6 +57,8 @@ usabilityNotes = ("                 Usability Notes\n\n"
                   " - Key presses do not move cursor, so X and Y positions do not matter.\n"
                   " - Action has two escape characters, ! and #, that will allow the user to continue typing rather than overwriting the action key.\n"
                   "           This is to allow for calling another macro (!) or finding an image (#)\n"
+                  " - Action also allows underscore _ as a special character that will indicate the following key should be pressed and held for the set amount of time in the Delay field.\n"
+                  "           Note that for these rows the Delay no longer delays after the key is held. \n"
                   " - Typing !macroName into action and adding that row will make a macro look for another tab in Sticky's Autoclicker with the tab name macroName and execute that macro.\n"
                   "           Delay serves another purpose when used with a macro action (!macroName) and will call that macro for the delay amount of times\n"
                   " - Typing #imageName into action and adding that row will make a macro look for a .png image with that name in the \Images folder and move the cursor to a found image and left click.\n"
@@ -112,7 +116,9 @@ class treeviewNotebook:
         self.importMacroButton = Button(root, text="Import Macro", bg=bgButton, command=importMacro, borderwidth=2)
         self.importMacroButton.grid(row=6, column=0, sticky='n', columnspan=2)
         self.helpButton = Button(root, text="Help", bg=bgButton, command=showHelp, borderwidth=2)
-        self.helpButton.grid(row=7, column=0, sticky='n', columnspan=2)
+        self.helpButton.grid(row=7, column=0, sticky='n', columnspan=1)
+        self.recordButton = Button(root, text="Record", bg=bgButton, command=startRecording, borderwidth=2)
+        self.recordButton.grid(row=7, column=1, sticky='n', columnspan=1)
 
         # Column 1
         root.columnconfigure(1, weight=4)
@@ -591,13 +597,26 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
                              mode='r')))
                     # print("file: ", os.getcwd() + r'\Macros' + '\\' + clickArray[row][2][1:len(clickArray[row][2])] + '.csv')
                     startClicking(arrayParam, int(clickArray[row][3]), False, threadFlag)
+            # Action is starts with an underscore (_), hold the key for the given amount of time
+            elif clickArray[row][2][0] == '_' and len(clickArray[row][2]) > 1:
+                # key hold and release is action
+                pyautogui.keyDown(clickArray[row][2][1:])
+                while threadFlag.wait(int(clickArray[row][3]) / 1000):
+                    return
+                pyautogui.keyUp(clickArray[row][2][1:])
             else:
+                print(clickArray[row][2])
                 # key press is action
-                pyautogui.press(clickArray[row][2])
+                if clickArray[row][2] == 'space ':
+                    pyautogui.press(' ')
+                if clickArray[row][2] == 'tab':
+                    pyautogui.press('\t')
+                elif clickArray[row][2] != 'space':
+                    pyautogui.press(clickArray[row][2])
 
             if loopsParam == 0 or loopsLeft.get() == 0: return
-            # Only sleep if row is not macro or image finder
-            if clickArray[row][2][0] != '!' and clickArray[row][2][0] != '#' and len(clickArray[row][2]) > 1:
+            # Only sleep if row is not macro, image finder, or key hold
+            if clickArray[row][2][0] != '!' and clickArray[row][2][0] != '#' and len(clickArray[row][2]) > 1 and clickArray[row][2][0] != '_':
                 while threadFlag.wait(int(clickArray[row][3]) / 1000):
                     return
 
@@ -776,8 +795,10 @@ def exportMacro():
 
 
 def actionPopulate(event):
-    # ! is special character that allows typing of action instead of instating setting action to each key press
-    if str(actionEntry.get())[0:1] != '!' and str(actionEntry.get())[0:1] != '#':
+    print(event)
+    print(event.keysym)
+    # !, #, and _ is special character that allows typing of action instead of instating setting action to each key press
+    if str(actionEntry.get())[0:1] != '!' and str(actionEntry.get())[0:1] != '#' and str(actionEntry.get())[0:1] != '_':
         # need to use different properties for getting key press for letters vs whitespace/ctrl/shift/alt
         # != ?? to exclude mouse button as their char and keysym are not empty but are equal to ??
         print(event)
@@ -788,15 +809,46 @@ def actionPopulate(event):
             actionEntry.insert(0, event.keysym)
         elif str(event.char).strip() and event.char != '??':
             # clear entry before new char is entered
-            actionEntry.delete(0, END)
+            if event.keycode >= 96 and event.keycode <= 105:
+                # Append NUM if keystroke comes from numpad
+                actionEntry.delete(0, END)
+                actionEntry.insert(0, 'NUM')
+            else:
+                actionEntry.delete(0, END)
         elif event.keysym and event.char != '??':
             # clear entry and enter key string
             actionEntry.delete(0, END)
             actionEntry.insert(0, event.keysym)
         else:
-            # clear entry and enter key string
+            # clear entry and enter Mouse event
             actionEntry.delete(0, END)
             actionEntry.insert(0, 'M' + str(event.num))
+    # _ is special character that needs to be followed by a key stroke
+    if str(actionEntry.get())[0:1] == '_':
+        if event.keysym == 'Escape' and event.char != '??':
+            # special case for Escape because it has a char and might otherwise act like a letter but won't fill in the
+            # box with 'Escape'
+            actionEntry.delete(0, END)
+            actionEntry.insert(0, '_' + event.keysym)
+        elif str(event.char).strip() and event.char != '??':
+            # clear entry before new char is entered
+
+            if event.keycode >= 96 and event.keycode <= 105:
+                # Append NUM if keystroke comes from numpad
+                actionEntry.delete(0, END)
+                actionEntry.insert(0, '_NUM')
+            else:
+                actionEntry.delete(0, END)
+                actionEntry.insert(0, '_')
+        elif event.keysym and event.char != '??':
+            # clear entry and enter key string
+            actionEntry.delete(0, END)
+            actionEntry.insert(0, '_' + event.keysym)
+        else:
+            # clear entry and enter Mouse event
+            actionEntry.delete(0, END)
+            actionEntry.insert(0, '_M' + str(event.num))
+
 
 
 def overwriteRows():  # what row and column was clicked on
@@ -818,10 +870,125 @@ def showHelp():
     closeButton.grid(row=1, column=0)
 
 
+
 def onClose():
     stopClicking()
 
     root.destroy()
+
+
+def startRecording():
+    recorder = Recorder(time.time())
+    recorder.startRecordingThread()
+
+
+class Recorder:
+    start = None
+    startPress = None
+    thread = None
+    pressed = []
+
+    def __init__(self, start):
+        self.start = start
+
+    def startRecordingThread(self):
+        self.thread = threading.Event()
+        self.start = time.time()
+
+        tN.activeThread = threading.Thread(target=self.record)
+        tN.activeThread.threadFlag = self.thread
+        tN.activeThread.start()
+
+    def record(self):
+        with Listener(on_press=self.recordPress, on_release=self.recordRelease) as listener:
+            listener.join()
+
+    def recordPress(self, key):
+        # log time ASAP for accuracy
+        tempTime = time.time()
+        # make sure key is no already pressed
+        for keyPressed in self.pressed:
+            if key == keyPressed:
+                return
+        # key is not yet pressed, add to array and log time
+        self.startPress = tempTime
+        self.pressed.append(key)
+        print("{0}Down".format(key))
+
+    def recordRelease(self, key):
+        # finish logging press time ASAP
+        pressTime = int((time.time() - self.startPress) * 1000)
+
+        i = 0
+        for keyPressed in self.pressed:
+            if key == keyPressed:
+                del self.pressed[i]
+                if pressTime < 100:
+                    # Short press, consider it not a hold
+                    self.addRow(0, 0, key, pressTime)
+                else:
+                    # Longer press, consider it a hold
+                    self.addRow(0, 0, "_{0}".format(key), pressTime)
+            i += 1
+
+        print("{0} Release".format(key))
+
+
+    def addRow(self, x, y, key, delay):
+        addRowWithParams(x, y, key, delay, "")
+
+        # !, #, and _ is special character that allows typing of action instead of instating setting action to each key press
+        # if str(actionEntry.get())[0:1] != '!' and str(actionEntry.get())[0:1] != '#' and str(actionEntry.get())[0:1] != '_':
+            # need to use different properties for getting key press for letters vs whitespace/ctrl/shift/alt
+            # != ?? to exclude mouse button as their char and keysym are not empty but are equal to ??
+        #     print(event)
+        #     if event.keysym == 'Escape' and event.char != '??':
+        #         # special case for Escape because it has a char and might otherwise act like a letter but won't fill in the
+        #         # box with 'Escape'
+        #         actionEntry.delete(0, END)
+        #         actionEntry.insert(0, event.keysym)
+        #         elif str(event.char).strip() and event.char != '??':
+        #         # clear entry before new char is entered
+        #         if event.keycode >= 96 and event.keycode <= 105:
+        #             # Append NUM if keystroke comes from numpad
+        #             actionEntry.delete(0, END)
+        #             actionEntry.insert(0, 'NUM')
+        #         else:
+        #             actionEntry.delete(0, END)
+        #     elif event.keysym and event.char != '??':
+        #         # clear entry and enter key string
+        #         actionEntry.delete(0, END)
+        #         actionEntry.insert(0, event.keysym)
+        #     else:
+        #         # clear entry and enter Mouse event
+        #         actionEntry.delete(0, END)
+        #         actionEntry.insert(0, 'M' + str(event.num))
+        # # _ is special character that needs to be followed by a key stroke
+        # if str(actionEntry.get())[0:1] == '_':
+        #     if event.keysym == 'Escape' and event.char != '??':
+        #         # special case for Escape because it has a char and might otherwise act like a letter but won't fill in the
+        #         # box with 'Escape'
+        #         actionEntry.delete(0, END)
+        #         actionEntry.insert(0, '_' + event.keysym)
+        #     elif str(event.char).strip() and event.char != '??':
+        #         # clear entry before new char is entered
+        #
+        #         if event.keycode >= 96 and event.keycode <= 105:
+        #             # Append NUM if keystroke comes from numpad
+        #             actionEntry.delete(0, END)
+        #             actionEntry.insert(0, '_NUM')
+        #     else:
+        #         actionEntry.delete(0, END)
+        #         actionEntry.insert(0, '_')
+        #     elif event.keysym and event.char != '??':
+        #         # clear entry and enter key string
+        #         actionEntry.delete(0, END)
+        #         actionEntry.insert(0, '_' + event.keysym)
+        #     else:
+        #         # clear entry and enter Mouse event
+        #         actionEntry.delete(0, END)
+        #         actionEntry.insert(0, '_M' + str(event.num))
+    ## addRowWithParams(xParam, yParam, keyParam, delayParam, commentParam)
 
 
 tN = treeviewNotebook()
