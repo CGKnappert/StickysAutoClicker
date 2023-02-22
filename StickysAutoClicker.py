@@ -486,7 +486,7 @@ def threadStartClicking():
         # because if Start Clicking is clicked before thread is killed this will overwrite saved thread and prevent setting event with intent to kill thread
         threadFlag = threading.Event()
         tN.activeThread = threading.Thread(target=startClicking,
-                                           args=(clickArray, int(loopEntry.get()), True, threadFlag))
+                                           args=(clickArray, int(loopEntry.get()), True, threadFlag, []))
         tN.activeThread.threadFlag = threadFlag
         tN.activeThread.start()
     except:
@@ -516,7 +516,7 @@ def monitorExit():
 
 
 # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
-def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
+def startClicking(clickArray, loopsParam, mainLoop, threadFlag, pressed):
     # loop though param treeview, for param loops
     # needed so as to not mess with LoopsLeft from outer loop
     root.update()
@@ -599,11 +599,61 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
                     startClicking(arrayParam, int(clickArray[row][3]), False, threadFlag)
             # Action is starts with an underscore (_), hold the key for the given amount of time
             elif clickArray[row][2][0] == '_' and len(clickArray[row][2]) > 1:
+                # i will be string pointer for iterating through list of presses
+                i = 1
+                while i < len(clickArray[row][2]):
+                    # j will be end point of key string
+                    j = clickArray[row][2][i:].find('|')
+                    if j == -1:
+                        j = len(clickArray[row][2])
+
+                    key = clickArray[row][2][i:j + 1]
+                    print(clickArray[row][2][i:].find('|'))
+                    print("key " + key)
+                    print("i " + str(i))
+                    # if clickArray[row][2][i:i+2] in ['M1', 'M2', 'M3']:
+                    i += j + 1
+
+                    # TODO: Do not press if already pressed?
+                    # release at end or start of loop?
+                    # loops
+                    # pyautogui.keyDown(key)
+                    if key in ['M1', 'M2', 'M3']:
+                        if int(clickArray[row][0]) != 0 or int(clickArray[row][1]) != 0:
+                            # mouse click is action
+                            if key == 'M1':
+                                pyautogui.mouseDown(int(clickArray[row][0]), int(clickArray[row][1]), button='left')
+                            elif key == 'M3':
+                                pyautogui.moveTo(int(clickArray[row][0]), int(clickArray[row][1]))
+                                pyautogui.mouseDown(button='right')
+                            else:
+                                pyautogui.mouseDown(int(clickArray[row][0]), int(clickArray[row][1]), button='middle')
+                        else:
+                            # mouse click is action without position, do not move, just click
+                            if key == 'M1':
+                                pyautogui.mouseDown(button='left')
+                            elif key == 'M3':
+                                pyautogui.mouseDown(button='right')
+                            else:
+                                pyautogui.mouseDown(button='middle')
+                    else:
+                        print(clickArray[row][2])
+                        # key press is action
+                        if key == 'space ':
+                            pyautogui.keyDown(' ')
+                        if key == 'tab':
+                            pyautogui.keyDown('\t')
+                        elif key != 'space':
+                            pyautogui.keyDown(clickArray[row][2])
+
+
                 # key hold and release is action
-                pyautogui.keyDown(clickArray[row][2][1:])
-                while threadFlag.wait(int(clickArray[row][3]) / 1000):
-                    return
-                pyautogui.keyUp(clickArray[row][2][1:])
+                # pyautogui.keyDown(clickArray[row][2][1:])
+                # while threadFlag.wait(int(clickArray[row][3]) / 1000):
+                #     return
+                # pyautogui.keyUp(clickArray[row][2][1:])
+
+
             else:
                 print(clickArray[row][2])
                 # key press is action
@@ -797,6 +847,7 @@ def exportMacro():
 def actionPopulate(event):
     print(event)
     print(event.keysym)
+    actionEntry.icursor(len(actionEntry.get()))
     # !, #, and _ is special character that allows typing of action instead of instating setting action to each key press
     if str(actionEntry.get())[0:1] != '!' and str(actionEntry.get())[0:1] != '#' and str(actionEntry.get())[0:1] != '_':
         # need to use different properties for getting key press for letters vs whitespace/ctrl/shift/alt
@@ -828,26 +879,37 @@ def actionPopulate(event):
         if event.keysym == 'Escape' and event.char != '??':
             # special case for Escape because it has a char and might otherwise act like a letter but won't fill in the
             # box with 'Escape'
-            actionEntry.delete(0, END)
-            actionEntry.insert(0, '_' + event.keysym)
+            if len(actionEntry.get()) > 1:
+                actionEntry.insert(len(actionEntry.get()), '|' + event.keysym)
+            else:
+                actionEntry.insert(len(actionEntry.get()), event.keysym)
+
         elif str(event.char).strip() and event.char != '??':
             # clear entry before new char is entered
-
             if event.keycode >= 96 and event.keycode <= 105:
                 # Append NUM if keystroke comes from numpad
-                actionEntry.delete(0, END)
-                actionEntry.insert(0, '_NUM')
-            else:
-                actionEntry.delete(0, END)
-                actionEntry.insert(0, '_')
+                if len(actionEntry.get()) > 1:
+                    actionEntry.insert(len(actionEntry.get()), '|NUM')
+                else:
+                    actionEntry.insert(len(actionEntry.get()), 'NUM')
+            elif len(actionEntry.get()) > 1:
+                actionEntry.insert(len(actionEntry.get()), '|')
+
         elif event.keysym and event.char != '??':
+            if event.keysym == 'space':
+                # delete the ' ' that was ust typed as this uses 'space' as ' '
+                actionEntry.delete(len(actionEntry.get()) - 1)
             # clear entry and enter key string
-            actionEntry.delete(0, END)
-            actionEntry.insert(0, '_' + event.keysym)
+            if len(actionEntry.get()) > 1:
+                actionEntry.insert(len(actionEntry.get()), '|' + event.keysym)
+            else:
+                actionEntry.insert(len(actionEntry.get()), event.keysym)
         else:
             # clear entry and enter Mouse event
-            actionEntry.delete(0, END)
-            actionEntry.insert(0, '_M' + str(event.num))
+            if len(actionEntry.get()) > 1:
+                actionEntry.insert(len(actionEntry.get()), '|M' + str(event.num))
+            else:
+                actionEntry.insert(len(actionEntry.get()), 'M' + str(event.num))
 
 
 
