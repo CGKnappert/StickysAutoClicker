@@ -486,7 +486,7 @@ def threadStartClicking():
         # because if Start Clicking is clicked before thread is killed this will overwrite saved thread and prevent setting event with intent to kill thread
         threadFlag = threading.Event()
         tN.activeThread = threading.Thread(target=startClicking,
-                                           args=(clickArray, int(loopEntry.get()), True, threadFlag, []))
+                                           args=(clickArray, int(loopEntry.get()), True, threadFlag))
         tN.activeThread.threadFlag = threadFlag
         tN.activeThread.start()
     except:
@@ -516,10 +516,12 @@ def monitorExit():
 
 
 # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
-def startClicking(clickArray, loopsParam, mainLoop, threadFlag, pressed):
+def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
     # loop though param treeview, for param loops
     # needed so as to not mess with LoopsLeft from outer loop
     root.update()
+
+    pressed = []
 
     # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
     while loopsParam > 0 and loopsLeft.get() > 0:
@@ -601,10 +603,14 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag, pressed):
             elif clickArray[row][2][0] == '_' and len(clickArray[row][2]) > 1:
                 # i will be string pointer for iterating through list of presses
                 i = 1
+                startTime = time.time()
+
+                # loop until end of string of keys to press
                 while i < len(clickArray[row][2]):
                     # j will be end point of key string
                     j = clickArray[row][2][i:].find('|')
                     if j == -1:
+                        # | not found, make end of whole string instead
                         j = len(clickArray[row][2])
 
                     key = clickArray[row][2][i:j + 1]
@@ -616,8 +622,6 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag, pressed):
 
                     # TODO: Do not press if already pressed?
                     # release at end or start of loop?
-                    # loops
-                    # pyautogui.keyDown(key)
                     if key in ['M1', 'M2', 'M3']:
                         if int(clickArray[row][0]) != 0 or int(clickArray[row][1]) != 0:
                             # mouse click is action
@@ -648,10 +652,16 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag, pressed):
 
 
                 # key hold and release is action
-                # pyautogui.keyDown(clickArray[row][2][1:])
-                # while threadFlag.wait(int(clickArray[row][3]) / 1000):
-                #     return
+                print((int(clickArray[row][3]) / 1000), time.time() - startTime)
+                while threadFlag.wait((int(clickArray[row][3]) / 1000) - time.time() + startTime):
+                    return
                 # pyautogui.keyUp(clickArray[row][2][1:])
+
+                # check the next row to see if its also holding keys
+                if clickArray[row + 1][2][0] == '_':
+                    pressed = clickArray[row][2][1:].split('|')
+
+
 
 
             else:
