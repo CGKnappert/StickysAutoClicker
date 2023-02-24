@@ -3,11 +3,7 @@ import time
 import csv
 import mouse
 import mss
-from PIL import ImageGrab
-from functools import partial
-ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
 import pyautogui
-pyautogui.FAILSAFE = False
 import threading
 from pynput import keyboard
 from pynput.keyboard import Key, Listener
@@ -19,6 +15,11 @@ from tkinter import ttk
 from tkinter import filedialog
 from tkinter import simpledialog
 from tkinter.messagebox import askyesno
+
+from PIL import ImageGrab
+from functools import partial
+ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
+pyautogui.FAILSAFE = False
 
 
 # TODO: Export crash reports
@@ -69,6 +70,7 @@ usabilityNotes = ("                 Usability Notes\n\n"
 
 root = Tk()
 global_monitor_left = 0
+global_recording = False
 
 #define global monitors
 with mss.mss() as sct:
@@ -77,6 +79,10 @@ with mss.mss() as sct:
 
 class treeviewNotebook:
     notebook = None
+    recorder = None
+
+    # Array for currently pressed keys so they can be unpressed when stopping clicking
+    currPressed = []
 
     # store clicking thread for reference, needed to pass event.set to loop stops while waiting.
     # setting event lets the sleep of the clicking thread get interrupted and stop the thread
@@ -117,7 +123,7 @@ class treeviewNotebook:
         self.importMacroButton.grid(row=6, column=0, sticky='n', columnspan=2)
         self.helpButton = Button(root, text="Help", bg=bgButton, command=showHelp, borderwidth=2)
         self.helpButton.grid(row=7, column=0, sticky='n', columnspan=1)
-        self.recordButton = Button(root, text="Record", bg=bgButton, command=startRecording, borderwidth=2)
+        self.recordButton = Button(root, text="Record", bg=bgButton, command=self.toggleRecording, borderwidth=2)
         self.recordButton.grid(row=7, column=1, sticky='n', columnspan=1)
 
         # Column 1
@@ -287,11 +293,19 @@ class treeviewNotebook:
         tabCount = len(self.treeTabs)
 
         self.notebook.add(self.tabFrame, text=name)
-
         self.notebook.select(self.tabFrame)
 
     def getNotebook(self):
         return self.notebook
+
+    def toggleRecording(self):
+        if self.recorder is not None:
+            self.recorder.stopRecordingThread()
+            del self.recorder
+            self.recorder = None
+        else:
+            self.recorder = Recorder()
+            self.recorder.startRecordingThread()
 
 
 class rightClickMenu():
@@ -440,13 +454,22 @@ def resizeNotebook(self):
     tN.treeView.column('Comment', width=int((winWidth / winWeight) * 4)) #4
 
 
+def cleanseActionEntry(a, b, c):
+    action = actionEntry.get()
+    action = action.replace(' ', '')
+    actionEntry.delete(0, END)
+    actionEntry.insert(0, action)
+
+
 vcmd = (root.register(checkNumerical), '%S')
 loopEntry = Entry(root, width=5, justify="right", validate='key', vcmd=vcmd)
-loopEntry.insert(0, 0)
+loopEntry.insert(0, 1)
 delayEntry = Entry(root, width=12, justify="right", validate='key', vcmd=vcmd)
 delayEntry.insert(0, 0)
-actionEntry = Entry(root, width=10, justify="center")
+actionVar = StringVar()
+actionEntry = Entry(root, width=10, justify="center", textvariable=actionVar)
 actionEntry.insert(0, 'M1')
+actionVar.trace('w', cleanseActionEntry)
 commentEntry = Entry(root, width=10, justify="right")
 commentEntry.insert(0, '')
 rCM = rightClickMenu()
@@ -522,6 +545,9 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
     root.update()
 
     pressed = []
+    startTime = None
+
+    # TODO store row so stopclicking can unpress keys
 
     # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
     while loopsParam > 0 and loopsLeft.get() > 0:
@@ -603,71 +629,117 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
             elif clickArray[row][2][0] == '_' and len(clickArray[row][2]) > 1:
                 # i will be string pointer for iterating through list of presses
                 i = 1
-                startTime = time.time()
 
                 # loop until end of string of keys to press
                 while i < len(clickArray[row][2]):
                     # j will be end point of key string
                     j = clickArray[row][2][i:].find('|')
                     if j == -1:
-                        # | not found, make end of whole string instead
+                        # '|' not found, make end of whole string instead
                         j = len(clickArray[row][2])
 
                     key = clickArray[row][2][i:j + 1]
-                    print(clickArray[row][2][i:].find('|'))
                     print("key " + key)
-                    print("i " + str(i))
-                    # if clickArray[row][2][i:i+2] in ['M1', 'M2', 'M3']:
                     i += j + 1
+                    # TODO: release at end or start of loop?
 
-                    # TODO: Do not press if already pressed?
-                    # release at end or start of loop?
-                    if key in ['M1', 'M2', 'M3']:
-                        if int(clickArray[row][0]) != 0 or int(clickArray[row][1]) != 0:
-                            # mouse click is action
-                            if key == 'M1':
-                                pyautogui.mouseDown(int(clickArray[row][0]), int(clickArray[row][1]), button='left')
-                            elif key == 'M3':
-                                pyautogui.moveTo(int(clickArray[row][0]), int(clickArray[row][1]))
-                                pyautogui.mouseDown(button='right')
+                    # Do not press if already pressed
+                    if key not in pressed:
+                        if key in ['M1', 'M2', 'M3']:
+                            if int(clickArray[row][0]) != 0 or int(clickArray[row][1]) != 0:
+                                # mouse click is action
+                                if key == 'M1':
+                                    pyautogui.mouseDown(int(clickArray[row][0]), int(clickArray[row][1]), button='left')
+                                elif key == 'M3':
+                                    pyautogui.moveTo(int(clickArray[row][0]), int(clickArray[row][1]))
+                                    pyautogui.mouseDown(button='right')
+                                else:
+                                    pyautogui.mouseDown(int(clickArray[row][0]), int(clickArray[row][1]), button='middle')
                             else:
-                                pyautogui.mouseDown(int(clickArray[row][0]), int(clickArray[row][1]), button='middle')
+                                # mouse click is action without position, do not move, just click
+                                if key == 'M1':
+                                    pyautogui.mouseDown(button='left')
+                                elif key == 'M3':
+                                    pyautogui.mouseDown(button='right')
+                                else:
+                                    pyautogui.mouseDown(button='middle')
                         else:
-                            # mouse click is action without position, do not move, just click
-                            if key == 'M1':
-                                pyautogui.mouseDown(button='left')
-                            elif key == 'M3':
-                                pyautogui.mouseDown(button='right')
-                            else:
-                                pyautogui.mouseDown(button='middle')
-                    else:
-                        print(clickArray[row][2])
-                        # key press is action
-                        if key == 'space ':
-                            pyautogui.keyDown(' ')
-                        if key == 'tab':
-                            pyautogui.keyDown('\t')
-                        elif key != 'space':
-                            pyautogui.keyDown(clickArray[row][2])
+                            # key press is action
+                            if key == 'space':
+                                pyautogui.keyDown(' ')
+                            if key == 'tab':
+                                pyautogui.keyDown('\t')
+                            elif key != 'space':
+                                pyautogui.keyDown(key)
 
+                # keep close to key presses
+                # start timer if not yet set, will be set if prior action was also hold
+                if startTime is None: startTime = time.time()
 
-                # key hold and release is action
-                print((int(clickArray[row][3]) / 1000), time.time() - startTime)
-                while threadFlag.wait((int(clickArray[row][3]) / 1000) - time.time() + startTime):
-                    return
-                # pyautogui.keyUp(clickArray[row][2][1:])
-
+                # TODO unpress next loop, see if more accurate?
                 # check the next row to see if its also holding keys
-                if clickArray[row + 1][2][0] == '_':
+                if len(clickArray) > row + 1:
+                    # update array of pressed keys
+                    pressed = clickArray[row][2][1:].split('|')
+                    if clickArray[row + 1][2][0] == '_':
+                        # stop time if next action is not hold
+                        toBePressed = clickArray[row + 1][2][1:].split('|')
+
+                        # key hold and release is action
+                        print((int(clickArray[row][3]) / 1000), time.time() - startTime)
+                        while threadFlag.wait((int(clickArray[row][3]) / 1000) - time.time() + startTime):
+                            return
+                        startTime = time.time()
+
+                        print(pressed)
+                        # Release all keys not pressed in next step
+                        for pressedKey in range(len(pressed)):
+                            if pressed[pressedKey] not in toBePressed:
+                                print("Release " + str(pressed[pressedKey]))
+                                if pressed[pressedKey] == 'M1':
+                                    pyautogui.mouseUp(button='left')
+                                elif pressed[pressedKey] == 'M3':
+                                    pyautogui.mouseUp(button='right')
+                                elif pressed[pressedKey] == 'M2':
+                                    pyautogui.mouseUp(button='middle')
+                                elif pressed[pressedKey] == 'space':
+                                    pyautogui.keyUp(' ')
+                                elif pressed[pressedKey] == 'tab':
+                                    pyautogui.keyUp('\t')
+                                elif pressed[pressedKey] != 'space':
+                                    pyautogui.keyUp(pressed[pressedKey])
+                    else:
+                        # end timer because next action is not key hold
+                        startTime = None
+                else:
+                    # update array of pressed keys
                     pressed = clickArray[row][2][1:].split('|')
 
+                    # key hold and release is action
+                    print((int(clickArray[row][3]) / 1000), time.time() - startTime)
+                    while threadFlag.wait((int(clickArray[row][3]) / 1000) - time.time() + startTime):
+                        return
 
-
-
+                    print(pressed)
+                    # Release all keys not pressed in next step
+                    for pressedKey in range(len(pressed)):
+                        print("Release " + str(pressed[pressedKey]))
+                        if pressed[pressedKey] == 'M1':
+                            pyautogui.mouseUp(button='left')
+                        elif pressed[pressedKey] == 'M3':
+                            pyautogui.mouseUp(button='right')
+                        elif pressed[pressedKey] == 'M2':
+                            pyautogui.mouseUp(button='middle')
+                        elif pressed[pressedKey] == 'space':
+                            pyautogui.keyUp(' ')
+                        elif pressed[pressedKey] == 'tab':
+                            pyautogui.keyUp('\t')
+                        elif pressed[pressedKey] != 'space':
+                            pyautogui.keyUp(pressed[pressedKey])
             else:
                 print(clickArray[row][2])
                 # key press is action
-                if clickArray[row][2] == 'space ':
+                if clickArray[row][2] == 'space':
                     pyautogui.press(' ')
                 if clickArray[row][2] == 'tab':
                     pyautogui.press('\t')
@@ -697,6 +769,8 @@ def stopClicking():
     tN.startButton.config(state=NORMAL)
     tN.stopButton.config(state=DISABLED)
 
+    # for key in tN.recorder.
+
 
 def getOrigin():
     # unhook mouse listener after getting mouse click, set to X, Y where mouse was clicked
@@ -724,34 +798,24 @@ def getCursorPosition():
 def addRow():
     # from Insert position button, adds row to bottom current treeview using entry values
     if len(tN.treeView.get_children()) % 2 == 0:
-        tN.treeView.insert(parent='', index='end', iid=None,
-                                                                                text=len(tN.treeView.get_children()) + 1,
-                                                                                values=(
-                                                                                x.get(), y.get(), actionEntry.get(),
-                                                                                int(delayEntry.get()), commentEntry.get()), tags='evenrow')
+        tN.treeView.insert(parent='', index='end', iid=None,text=len(tN.treeView.get_children()) + 1,values=(x.get(), y.get(), actionEntry.get(),int(delayEntry.get()), commentEntry.get()), tags='evenrow')
     else:
-        tN.treeView.insert(parent='', index='end', iid=None,
-                                                                                text=len(tN.treeView.get_children()) + 1,
-                                                                                values=(
-                                                                                x.get(), y.get(), actionEntry.get(),
-                                                                                int(delayEntry.get()), commentEntry.get()), tags='oddrow')
+        tN.treeView.insert(parent='', index='end', iid=None,text=len(tN.treeView.get_children()) + 1,values=(x.get(), y.get(), actionEntry.get(),int(delayEntry.get()), commentEntry.get()), tags='oddrow')
     exportMacro()
 
 
 def addRowWithParams(xParam, yParam, keyParam, delayParam, commentParam):
     # for import to populate new treeview
     if len(tN.treeView.get_children()) % 2 == 0:
-        tN.treeView.insert(parent='', index='end', iid=None,
-                                                                                text=len(tN.treeView.get_children()) + 1,
-                                                                                values=(
-                                                                                xParam, yParam, keyParam, delayParam, commentParam),
-                                                                                tags='evenrow')
+        tN.treeView.insert(parent='', index='end', iid=None, text=len(tN.treeView.get_children()) + 1, values=(xParam, yParam, keyParam, delayParam, commentParam), tags='evenrow')
     else:
-        tN.treeView.insert(parent='', index='end', iid=None,
-                                                                                text=len(tN.treeView.get_children()) + 1,
-                                                                                values=(
-                                                                                xParam, yParam, keyParam, delayParam, commentParam),
-                                                                                tags='oddrow')
+        tN.treeView.insert(parent='', index='end', iid=None, text=len(tN.treeView.get_children()) + 1, values=( xParam, yParam, keyParam, delayParam, commentParam), tags='oddrow')
+
+
+def updateRowWithParams(row, xParam, yParam, keyParam, delayParam, commentParam):
+    i = 3
+    # for import to populate new treeview
+    # tN.treeView.update(parent='', index='end', iid=None, text=len(tN.treeView.get_children()) + 1, values=(xParam, yParam, keyParam, delayParam, commentParam))
     # exportMacro()
 
 
@@ -855,14 +919,13 @@ def exportMacro():
 
 
 def actionPopulate(event):
-    print(event)
-    print(event.keysym)
+    # print(event)
+    # print(event.keysym)
     actionEntry.icursor(len(actionEntry.get()))
     # !, #, and _ is special character that allows typing of action instead of instating setting action to each key press
     if str(actionEntry.get())[0:1] != '!' and str(actionEntry.get())[0:1] != '#' and str(actionEntry.get())[0:1] != '_':
         # need to use different properties for getting key press for letters vs whitespace/ctrl/shift/alt
         # != ?? to exclude mouse button as their char and keysym are not empty but are equal to ??
-        print(event)
         if event.keysym == 'Escape' and event.char != '??':
             # special case for Escape because it has a char and might otherwise act like a letter but won't fill in the
             # box with 'Escape'
@@ -942,16 +1005,10 @@ def showHelp():
     closeButton.grid(row=1, column=0)
 
 
-
 def onClose():
     stopClicking()
 
     root.destroy()
-
-
-def startRecording():
-    recorder = Recorder(time.time())
-    recorder.startRecordingThread()
 
 
 class Recorder:
@@ -959,108 +1016,178 @@ class Recorder:
     startPress = None
     thread = None
     pressed = []
+    keycode = keyboard.KeyCode
+    recording = False
 
-    def __init__(self, start):
-        self.start = start
+    # Constants for key conversion
+    # pynput needed for hooking
+    # pyautogui better for
+    _keyDict = {
+        'Key.shift': 'Shift_L',
+        'Key.shift_r': 'Shift_R',
+        str(keyboard.Key.ctrl_l): 'Control_L',
+        str(keyboard.Key.ctrl_r): 'Control_R',
+        str(keyboard.Key.tab): 'Tab',
+        str(keyboard.Key.caps_lock): 'Caps_Lock',
+        str(keyboard.KeyCode.from_vk(96)): 'NUM0',
+        str(keyboard.KeyCode.from_vk(97)): 'NUM1',
+        str(keyboard.KeyCode.from_vk(98)): 'NUM2',
+        str(keyboard.KeyCode.from_vk(99)): 'NUM3',
+        str(keyboard.KeyCode.from_vk(100)): 'NUM4',
+        str(keyboard.KeyCode.from_vk(101)): 'NUM5',
+        str(keyboard.KeyCode.from_vk(102)): 'NUM6',
+        str(keyboard.KeyCode.from_vk(103)): 'NUM7',
+        str(keyboard.KeyCode.from_vk(104)): 'NUM8',
+        str(keyboard.KeyCode.from_vk(105)): 'NUM9',
+        'Key.enter': 'Return',
+        'Key.space': 'space',
+        'Key.f1': 'F1',
+        'Key.f2': 'F2',
+        'Key.f3': 'F3',
+        'Key.f4': 'F4',
+        'Key.f5': 'F5',
+        'Key.f6': 'F6',
+        'Key.f7': 'F7',
+        'Key.f8': 'F8',
+        'Key.f9': 'F9',
+        'Key.f10': 'F10',
+        'Key.f11': 'F11',
+        'Key.f12': 'F12',
+        'Key.scroll_lock': 'Scroll_Lock',
+    }
+
+    def __init__(self):
+        print(self._keyDict)
+
 
     def startRecordingThread(self):
-        self.thread = threading.Event()
-        self.start = time.time()
+        # currently think supporting clicking while recording is a bad idea
+        stopClicking()
+        tN.startButton.config(state=DISABLED)
+        tN.recordButton.configure(bg='red')
 
-        tN.activeThread = threading.Thread(target=self.record)
-        tN.activeThread.threadFlag = self.thread
-        tN.activeThread.start()
+        # create thread to monitor for exit keycombo
+        sE = threading.Thread(target=monitorExit, args=())
+        sE.start()
+
+        self.recording = True
+
+        # create new thread for recording so as to not disturb the autoclicker window
+        threadRecordingFlag = threading.Event()
+        self.thread = threading.Thread(target=self.record)
+        self.thread.threadFlag = threadRecordingFlag
+        self.thread.start()
+
+
+    def stopRecordingThread(self):
+        tN.startButton.config(state=NORMAL)
+        tN.recordButton.configure(bg=root.cget('bg'))
+
+        if self.thread:
+            self.thread.threadFlag.set()
+
+        self.recording = False
+
+        exportMacro()
+
 
     def record(self):
-        with Listener(on_press=self.recordPress, on_release=self.recordRelease) as listener:
-            listener.join()
+        # start listening
+        with Listener(on_press=self.__recordPress, on_release=self.__recordRelease) as listener:
+            try:
+                listener.join()
+            except Exception as e:
+                print('{0} was pressed'.format(e.args[0]))
 
-    def recordPress(self, key):
-        # log time ASAP for accuracy
+
+    def __recordPress(self, key):
+        # log time ASAP for accuracyas
         tempTime = time.time()
-        # make sure key is no already pressed
-        for keyPressed in self.pressed:
-            if key == keyPressed:
-                return
-        # key is not yet pressed, add to array and log time
+        print(self.pressed)
+
+        if self.thread.threadFlag.is_set():
+            return False
+
+        # if key.char exists use that, else translate to pyautogui keys
+        try:
+            if key.char is not None:
+                key = key.char
+                print(key.char)
+            else:
+                try:
+                    key = self._keyDict[str(key)]
+                except KeyError:
+                    key = str(key)
+        except AttributeError:
+            try:
+                key = self._keyDict[str(key)]
+            except KeyError:
+                key = str(key)
+
+        # ignore if key already pressed
+        if key in self.pressed:
+            return
+
+        # only add row on press if more than one key now being pressed, thus ending the prior action
+        if len(self.pressed) > 0:
+            # print("New press: " + self.pressed)
+            # other keys are already pressed
+            # if int((time.time() - self.startPress) * 1000) < 1:
+                # key was pressed close to prior press, merge with prior
+                # p = 0 # TODO edit prior row adding this time to that delay and skip this new press
+            # else:
+            self.__addRow(0, 0, "_" + "|".join(self.pressed), int((time.time() - self.startPress) * 1000))
+
+        # key is being pressed, add to array and log time
         self.startPress = tempTime
-        self.pressed.append(key)
-        print("{0}Down".format(key))
+        self.pressed.append(str(key))
+        print("{0}Down".format(str(format(key))))
 
-    def recordRelease(self, key):
-        # finish logging press time ASAP
+
+    def __recordRelease(self, key):
+        # check how long key was pressed ASAP
         pressTime = int((time.time() - self.startPress) * 1000)
+        # start new timer for next action's delay
+        self.startPress = time.time()
 
+        if self.thread.threadFlag.is_set():
+            return False
+
+        # if key.char exists use that, else translate to pyautogui keys
+        try:
+            if key.char is not None:
+                key = key.char
+                print(key.char)
+            else:
+                try:
+                    key = self._keyDict[str(key)]
+                except KeyError:
+                    key = str(key)
+        except AttributeError:
+            try:
+                key = self._keyDict[str(key)]
+            except KeyError:
+                key = str(key)
+
+        print("key is " + str(key))
         i = 0
         for keyPressed in self.pressed:
             if key == keyPressed:
-                del self.pressed[i]
-                if pressTime < 100:
+                # if pressTime < 100:
                     # Short press, consider it not a hold
-                    self.addRow(0, 0, key, pressTime)
-                else:
+                    # self.__addRow(0, 0, key, pressTime)
+                # else:
                     # Longer press, consider it a hold
-                    self.addRow(0, 0, "_{0}".format(key), pressTime)
+                self.__addRow(0, 0, "_" + "|".join(self.pressed), pressTime)
+                self.pressed.pop(i)
             i += 1
 
         print("{0} Release".format(key))
 
 
-    def addRow(self, x, y, key, delay):
+    def __addRow(self, x, y, key, delay):
         addRowWithParams(x, y, key, delay, "")
 
-        # !, #, and _ is special character that allows typing of action instead of instating setting action to each key press
-        # if str(actionEntry.get())[0:1] != '!' and str(actionEntry.get())[0:1] != '#' and str(actionEntry.get())[0:1] != '_':
-            # need to use different properties for getting key press for letters vs whitespace/ctrl/shift/alt
-            # != ?? to exclude mouse button as their char and keysym are not empty but are equal to ??
-        #     print(event)
-        #     if event.keysym == 'Escape' and event.char != '??':
-        #         # special case for Escape because it has a char and might otherwise act like a letter but won't fill in the
-        #         # box with 'Escape'
-        #         actionEntry.delete(0, END)
-        #         actionEntry.insert(0, event.keysym)
-        #         elif str(event.char).strip() and event.char != '??':
-        #         # clear entry before new char is entered
-        #         if event.keycode >= 96 and event.keycode <= 105:
-        #             # Append NUM if keystroke comes from numpad
-        #             actionEntry.delete(0, END)
-        #             actionEntry.insert(0, 'NUM')
-        #         else:
-        #             actionEntry.delete(0, END)
-        #     elif event.keysym and event.char != '??':
-        #         # clear entry and enter key string
-        #         actionEntry.delete(0, END)
-        #         actionEntry.insert(0, event.keysym)
-        #     else:
-        #         # clear entry and enter Mouse event
-        #         actionEntry.delete(0, END)
-        #         actionEntry.insert(0, 'M' + str(event.num))
-        # # _ is special character that needs to be followed by a key stroke
-        # if str(actionEntry.get())[0:1] == '_':
-        #     if event.keysym == 'Escape' and event.char != '??':
-        #         # special case for Escape because it has a char and might otherwise act like a letter but won't fill in the
-        #         # box with 'Escape'
-        #         actionEntry.delete(0, END)
-        #         actionEntry.insert(0, '_' + event.keysym)
-        #     elif str(event.char).strip() and event.char != '??':
-        #         # clear entry before new char is entered
-        #
-        #         if event.keycode >= 96 and event.keycode <= 105:
-        #             # Append NUM if keystroke comes from numpad
-        #             actionEntry.delete(0, END)
-        #             actionEntry.insert(0, '_NUM')
-        #     else:
-        #         actionEntry.delete(0, END)
-        #         actionEntry.insert(0, '_')
-        #     elif event.keysym and event.char != '??':
-        #         # clear entry and enter key string
-        #         actionEntry.delete(0, END)
-        #         actionEntry.insert(0, '_' + event.keysym)
-        #     else:
-        #         # clear entry and enter Mouse event
-        #         actionEntry.delete(0, END)
-        #         actionEntry.insert(0, '_M' + str(event.num))
-    ## addRowWithParams(xParam, yParam, keyParam, delayParam, commentParam)
 
 
 tN = treeviewNotebook()
