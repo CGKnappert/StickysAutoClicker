@@ -548,6 +548,7 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
     startTime = None
 
     # TODO store row so stopclicking can unpress keys
+    print("here")
 
     # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
     while loopsParam > 0 and loopsLeft.get() > 0:
@@ -629,6 +630,7 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
             elif clickArray[row][2][0] == '_' and len(clickArray[row][2]) > 1:
                 # i will be string pointer for iterating through list of presses
                 i = 1
+                print("here")
 
                 # loop until end of string of keys to press
                 while i < len(clickArray[row][2]):
@@ -678,7 +680,9 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
 
                 # TODO unpress next loop, see if more accurate?
                 # check the next row to see if its also holding keys
-                if len(clickArray) > row + 1:
+                print(len(clickArray), row)
+                if len(clickArray) >= row + 1:
+                    print("here")
                     # update array of pressed keys
                     pressed = clickArray[row][2][1:].split('|')
                     if clickArray[row + 1][2][0] == '_':
@@ -686,7 +690,7 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
                         toBePressed = clickArray[row + 1][2][1:].split('|')
 
                         # key hold and release is action
-                        print((int(clickArray[row][3]) / 1000), time.time() - startTime)
+                        print("hold wait" + (int(clickArray[row][3]) / 1000), time.time() - startTime)
                         while threadFlag.wait((int(clickArray[row][3]) / 1000) - time.time() + startTime):
                             return
                         startTime = time.time()
@@ -710,7 +714,30 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
                                     pyautogui.keyUp(pressed[pressedKey])
                     else:
                         # end timer because next action is not key hold
-                        startTime = None
+                        # startTime = None
+                        pressed = clickArray[row][2][1:].split('|')
+
+                        # key hold and release is action
+                        print((int(clickArray[row][3]) / 1000), time.time() - startTime)
+                        while threadFlag.wait((int(clickArray[row][3]) / 1000) - time.time() + startTime):
+                            return
+
+                        print(pressed)
+                        # Release all keys not pressed in next step
+                        for pressedKey in range(len(pressed)):
+                            print("Release " + str(pressed[pressedKey]))
+                            if pressed[pressedKey] == 'M1':
+                                pyautogui.mouseUp(button='left')
+                            elif pressed[pressedKey] == 'M3':
+                                pyautogui.mouseUp(button='right')
+                            elif pressed[pressedKey] == 'M2':
+                                pyautogui.mouseUp(button='middle')
+                            elif pressed[pressedKey] == 'space':
+                                pyautogui.keyUp(' ')
+                            elif pressed[pressedKey] == 'tab':
+                                pyautogui.keyUp('\t')
+                            elif pressed[pressedKey] != 'space':
+                                pyautogui.keyUp(pressed[pressedKey])
                 else:
                     # update array of pressed keys
                     pressed = clickArray[row][2][1:].split('|')
@@ -746,10 +773,12 @@ def startClicking(clickArray, loopsParam, mainLoop, threadFlag):
                 elif clickArray[row][2] != 'space':
                     pyautogui.press(clickArray[row][2])
 
+            print("wait: " + int(clickArray[row][3]))
             if loopsParam == 0 or loopsLeft.get() == 0: return
             # Only sleep if row is not macro, image finder, or key hold
             if clickArray[row][2][0] != '!' and clickArray[row][2][0] != '#' and len(clickArray[row][2]) > 1 and clickArray[row][2][0] != '_':
                 while threadFlag.wait(int(clickArray[row][3]) / 1000):
+                    print("wait: " + int(clickArray[row][3]))
                     return
 
         # decrement loop count param, also decrement main loop counter if main loop
