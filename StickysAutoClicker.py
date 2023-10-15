@@ -512,7 +512,7 @@ def threadStartClicking():
         # create event and give as attribute to thread object, this can be referenced in loop and prevent sleeping of thread
         # using wait instead of sleep lets thread stop when Stop Clicking is clicked while waiting allow the thread to be quickly killed
         # because if Start Clicking is clicked before thread is killed this will overwrite saved thread and prevent setting event with intent to kill thread
-        # threadFlag = threading.Event()
+        threadFlag = threading.Event()
         tN.activeThread = threading.Thread(target=startClicking,
                                            args=(clickArray, int(loopEntry.get()), True))
         tN.activeThread.threadFlag = threadFlag
@@ -558,7 +558,7 @@ def startClicking(clickArray, loopsParam, mainLoop):
 
     if firstClick[2] == "":
         # Nothing is just a pause
-        print((int(row[3]) / 1000), time.time() - clickTime)
+        print((int(firstClick[3]) / 1000), time.time() - clickTime)
         while time.time() < clickTime + (int(firstClick[3]) / 1000):
             pass
         clickTime = time.time()
@@ -664,8 +664,6 @@ def startClicking(clickArray, loopsParam, mainLoop):
                 if position: return
             if position:
                 # print("Found image at: ", position[0], ' : ', position[1])
-                while time.time() < clickTime + (int(prevDelay) / 1000):
-                    pass
                 pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                 clickTime = time.time()
             else:
@@ -698,14 +696,14 @@ def startClicking(clickArray, loopsParam, mainLoop):
             startClicking(arrayParam, int(firstClick[3]), False)
     else:
         # action is regular key press
-        if firstClick[2] == 'space':
+        if firstClick[2] != 'space':
+            pyautogui.press(firstClick[2])
+            clickTime = time.time()
+        elif firstClick[2] == 'space':
             pyautogui.press(' ')
             clickTime = time.time()
-        if firstClick[2] == 'tab':
+        elif firstClick[2] == 'tab':
             pyautogui.press('\t')
-            clickTime = time.time()
-        elif firstClick[2] != 'space':
-            pyautogui.press(firstClick[2])
             clickTime = time.time()
 
     prevDelay = int(firstClick[3])
@@ -717,16 +715,19 @@ def startClicking(clickArray, loopsParam, mainLoop):
             if loopsParam == 0 or loopsLeft.get() == 0: return
 
             # check row to see if its still holding keys
-            if row[2][0] == '_':
+            if len(tN.currPressed) > 0 and (row[2] == "" or row[2][0] == '_'):
                 # stop time if next action is not hold
-                toBePressed = row[2][1:].split('|')
+                if row[2] == "":
+                    toBePressed = []
+                elif row[2][0] == '_':
+                    toBePressed = row[2][1:].split('|')
 
                 # key hold and release is action
-                print('PreRelease', (prevDelay / 1000), time.time() - clickTime)
+                # print('PreRelease', (prevDelay / 1000), time.time() - clickTime)
                 while time.time() < clickTime + (int(prevDelay) / 1000):
                     pass
                 blnDelay = False
-                print('PreReleasePostWait', (prevDelay / 1000), time.time() - clickTime)
+                # print('PreReleasePostWait', (prevDelay / 1000), time.time() - clickTime)
                 # Release all keys not pressed in next step
                 for key in tN.currPressed:
                     if key not in toBePressed:
@@ -748,17 +749,18 @@ def startClicking(clickArray, loopsParam, mainLoop):
                         else:
                             pyautogui.keyUp(key)
                             tN.currPressed.remove(key)
-                    print("Release " + str(key) + " after " + str(time.time() - clickTime))
+                    # print("Release " + str(key) + " after " + str(time.time() - clickTime))
+                    # print("Release1 " + str(key) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
                 # if this row is also a press then start timer as hols is continuing
-                clickTime = time.time()
+                # clickTime = time.time()
             else:
                 # update array of pressed keys
                 pressed = row[2][1:].split('|')
 
-                print('PreRelease', str(pressed), (int(row[3]) / 1000), time.time() - clickTime)
+                # print('PreRelease', str(pressed), (int(row[3]) / 1000), time.time() - clickTime)
                 while time.time() < clickTime + (int(prevDelay) / 1000):
                     pass
-                print('PreReleaseWait', (int(row[3]) / 1000), time.time() - clickTime)
+                # print('PreReleaseWait', (int(row[3]) / 1000), time.time() - clickTime)
                 # Release all keys as next step is not pressing
                 for key in tN.currPressed:
                     if key == 'M1':
@@ -779,18 +781,27 @@ def startClicking(clickArray, loopsParam, mainLoop):
                     else:
                         pyautogui.keyUp(key)
                         tN.currPressed.remove(key)
-                    print("Release " + str(key) + " after " + str(time.time() - clickTime))
+                    # print("Release " + str(key) + " after " + str(time.time() - clickTime))
+                    # print("Release2 " + str(key) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
                 # if this row is not a press then wait to start timer until next click
 
-            # Moved _ hold action to top as it's accuracy is most important
+
+            # Empty must be first because other references to first character of Action will error
+            if row[2] == "":
+                # Nothing is just a pause
+                # print("blank", (int(row[3]) / 1000), time.time() - clickTime)
+                if blnDelay:
+                    while time.time() < clickTime + (int(prevDelay) / 1000):
+                        pass
+                clickTime = time.time()
+            # Moved _ hold action as close top as possible as it's accuracy is most important
             # Action is starts with an underscore (_), hold the key for the given amount of time
-            if row[2][0] == '_' and len(row[2]) > 1:
+            elif row[2][0] == '_' and len(row[2]) > 1:
                 # loop until end of string of keys to press
                 toPress = row[2][1:].split('|')
 
                 # wait prior row amount before pressing new keys
-                # TODO move to right prior to key presses, at least closer
-                if prevDelay:
+                if blnDelay:
                     while time.time() < clickTime + (int(prevDelay) / 1000):
                         pass
 
@@ -802,48 +813,56 @@ def startClicking(clickArray, loopsParam, mainLoop):
                                 # mouse click is action
                                 if key == 'M1':
                                     pyautogui.mouseDown(int(row[0]), int(row[1]), button='left')
+                                    # keep close to key presses
+                                    clickTime = time.time()
                                     tN.currPressed.append(key)
                                 elif key == 'M3':
                                     pyautogui.moveTo(int(row[0]), int(row[1]))
                                     pyautogui.mouseDown(button='right')
+                                    # keep close to key presses
+                                    clickTime = time.time()
                                     tN.currPressed.append(key)
                                 else:
                                     pyautogui.mouseDown(int(row[0]), int(row[1]), button='middle')
+                                    # keep close to key presses
+                                    clickTime = time.time()
                                     tN.currPressed.append(key)
                             else:
                                 # mouse click is action without position, do not move, just click
                                 if key == 'M1':
                                     pyautogui.mouseDown(button='left')
+                                    # keep close to key presses
+                                    clickTime = time.time()
                                     tN.currPressed.append(key)
                                 elif key == 'M3':
                                     pyautogui.mouseDown(button='right')
+                                    # keep close to key presses
+                                    clickTime = time.time()
                                     tN.currPressed.append(key)
                                 else:
                                     pyautogui.mouseDown(button='middle')
+                                    # keep close to key presses
+                                    clickTime = time.time()
                                     tN.currPressed.append(key)
                         else:
                             # key press is action
                             if key == 'space':
                                 pyautogui.keyDown(' ')
+                                # keep close to key presses
+                                clickTime = time.time()
                                 tN.currPressed.append(key)
                             elif key == 'tab':
                                 pyautogui.keyDown('\t')
+                                # keep close to key presses
+                                clickTime = time.time()
                                 tN.currPressed.append(key)
                             else:
                                 pyautogui.keyDown(key)
+                                # keep close to key presses
+                                clickTime = time.time()
                                 tN.currPressed.append(key)
-                        print("Press " + str(key) + " at " + str(time.time() - clickTime))
+                        # print("Press " + str(key) + " at " + str(time.time() - clickTime))
 
-                # keep close to key presses
-                # start timer if not yet set, will be set if prior action was also hold
-                clickTime = time.time()
-            elif row[2] == "":
-                # Nothing is just a pause
-                print("blank", (int(row[3]) / 1000), time.time() - clickTime)
-                if prevDelay:
-                    while time.time() < clickTime + (int(prevDelay) / 1000):
-                        pass
-                clickTime = time.time()
             elif row[2] in ['M1', 'M2', 'M3']:
                 if int(row[0]) != 0 or int(row[1]) != 0:
                     # mouse click is action
@@ -872,7 +891,7 @@ def startClicking(clickArray, loopsParam, mainLoop):
                 else:
                     # mouse click is action without position, do not move, just click
                     if clickArray[row][2] == 'M1':
-                        if prevAction[0] != '_':
+                        if blnDelay:
                             while time.time() < clickTime + (int(prevDelay) / 1000):
                                 pass
                         pyautogui.click(button='left')
@@ -946,13 +965,17 @@ def startClicking(clickArray, loopsParam, mainLoop):
                         open(os.getcwd() + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv',
                              mode='r')))
                     # print("file: ", os.getcwd() + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv')
-                    # TODO release all kets before starting new macro
-
                     startClicking(arrayParam, int(row[3]), False)
             else:
-                print(row[2])
+                # print(row[2])
                 # key press is action
-                if row[2] == 'space':
+                if row[2] != 'space':
+                    if blnDelay:
+                        while time.time() < clickTime + (int(prevDelay) / 1000):
+                            pass
+                    pyautogui.press(row[2])
+                    clickTime = time.time()
+                elif row[2] == 'space':
                     if blnDelay:
                         while time.time() < clickTime + (int(prevDelay) / 1000):
                             pass
@@ -964,12 +987,6 @@ def startClicking(clickArray, loopsParam, mainLoop):
                             pass
                     pyautogui.press('\t')
                     clickTime = time.time()
-                elif row[2] != 'space':
-                    if blnDelay:
-                        while time.time() < clickTime + (int(prevDelay) / 1000):
-                            pass
-                    pyautogui.press(row[2])
-                    clickTime = time.time()
                 else:
                     clickTime = time.time()
 
@@ -979,7 +996,7 @@ def startClicking(clickArray, loopsParam, mainLoop):
             #     print(int(row[3]) / 1000)
 
             prevDelay = int(row[3])
-            blnDelay = row[2][0] != "_"
+            blnDelay = row[2] == "" or row[2][0] != "_"
 
         # reappend first click for further loops
         if firstClick != None:
@@ -990,11 +1007,15 @@ def startClicking(clickArray, loopsParam, mainLoop):
         # decrement loop count param, also decrement main loop counter if main loop
         if loopsParam > 0: loopsParam = loopsParam - 1
         if mainLoop and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
-        root.update()
-
+    # if blnDelay:
+    while time.time() < clickTime + (int(prevDelay) / 1000):
+        pass
     # Release all keys that are pressed so as to not leave pressed
+    # Necessary to be outside of loop because last row in macro will expect next row to release right prior to next press.
     for pressedKey in tN.currPressed:
-        if pressedKey == 'M1':
+        if pressedKey != 'space':
+            pyautogui.keyUp(pressedKey)
+        elif pressedKey == 'M1':
             pyautogui.mouseUp(button='left')
         elif pressedKey == 'M3':
             pyautogui.mouseUp(button='right')
@@ -1004,10 +1025,9 @@ def startClicking(clickArray, loopsParam, mainLoop):
             pyautogui.keyUp(' ')
         elif pressedKey == 'tab':
             pyautogui.keyUp('\t')
-        elif pressedKey != 'space':
-            pyautogui.keyUp(pressedKey)
-        print("Release " + str(pressedKey) + " after " + str(time.time() - clickTime))
+        # print("Release " + str(pressedKey) + " after " + str(time.time() - clickTime))
 
+    root.update()
     if loopsLeft.get() == 0:
         tN.startButton.config(state=NORMAL)
         tN.stopButton.config(state=DISABLED)
@@ -1016,7 +1036,9 @@ def startClicking(clickArray, loopsParam, mainLoop):
 def stopClicking():
     # Release all keys that are pressed so as to not leave pressed
     for pressedKey in tN.currPressed:
-        if pressedKey == 'M1':
+        if pressedKey != 'space':
+            pyautogui.keyUp(pressedKey)
+        elif pressedKey == 'M1':
             pyautogui.mouseUp(button='left')
         elif pressedKey == 'M3':
             pyautogui.mouseUp(button='right')
@@ -1026,9 +1048,7 @@ def stopClicking():
             pyautogui.keyUp(' ')
         elif pressedKey == 'tab':
             pyautogui.keyUp('\t')
-        elif pressedKey != 'space':
-            pyautogui.keyUp(pressedKey)
-        print("Release " + str(pressedKey) + " after " + str(time.time() - clickTime))
+        print("Release " + str(pressedKey))
 
 
 
@@ -1497,7 +1517,7 @@ class Recorder:
                 # else:
                 # Longer press, consider it a hold
                 self.__addRow(0, 0, "_" + "|".join(self.pressed), pressTime)
-                self.pressed.remove(i)
+                self.pressed.pop(i)
             i += 1
 
         print("{0} Release".format(key))
