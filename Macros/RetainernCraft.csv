@@ -1,0 +1,21 @@
+807,1032,!CloseX,3,Close Windows
+1276,760,!OpenBell,1,ClickAway
+1529,515,!Retainers,8,
+807,1032,!CloseX,3,Open Craft
+807,1032,n,550,Open Craft
+720,529,M1,280,Click HQ
+720,529,M1,280,Click HQ
+720,529,M1,280,Click HQ
+720,529,M1,280,Click HQ
+720,529,M1,280,Click HQ
+720,529,M1,280,Click HQ
+736,571,M1,280,Click HQ
+736,571,M1,280,Click HQ
+736,571,M1,280,Click HQ
+807,1032,!#7,20,UPDATE - Craft
+807,1032,Escape,250,Close Craft
+807,1032,Escape,250,Close Craft
+807,1032,Escape,250,Close Craft
+807,1032,!CloseX,3,Close any windows
+807,1032,!Repair,1,
+807,1032,!ExMatLoop,1,
