@@ -21,6 +21,7 @@ from tkinter.messagebox import askyesno
 
 from PIL import ImageGrab
 from functools import partial
+import configparser as cp
 
 ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
 pyautogui.FAILSAFE = False
@@ -92,6 +93,7 @@ class treeviewNotebook:
     busyWait = tk.IntVar()
     hiddenMode = tk.IntVar()
     startFromSelected = tk.IntVar()
+    selectedApp = ''
 
     settingsWindow = None
     helpWindow = None
@@ -108,6 +110,7 @@ class treeviewNotebook:
     def __init__(self):
         self.initElements()
         self.initTab()
+        self.loadSettings()
 
     def initElements(self):
         # Column 0
@@ -241,11 +244,11 @@ class treeviewNotebook:
 
         self.treeFrame = tk.Frame(root, bg=bgColor)
         self.treeFrame.grid(row=2, column=2, columnspan=6, rowspan=6, sticky="nsew", pady=(20, 0))
-        treeviewStyle = ttk.Style()
-        treeviewStyle.theme_use("default")
-        treeviewStyle.configure("treeviewStyle.style", background="white")
-        treeviewStyle.map("treeviewStyle.style")
-        self.treeView = ttk.Treeview(self.treeFrame, selectmode="extended", style="treeviewStyle.style")
+        # treeviewStyle = ttk.Style()
+        # treeviewStyle.theme_use("default")
+        # treeviewStyle.configure("treeviewStyle.style", background="white")
+        # treeviewStyle.map("treeviewStyle.style")
+        self.treeView = ttk.Treeview(self.treeFrame, selectmode="extended") #, style="treeviewStyle.style")
         self.treeView['show'] = 'headings'
         self.treeTabs.append('macro1')
 
@@ -275,6 +278,20 @@ class treeviewNotebook:
 
         self.treeView.bind("<Button-3>", rCM.showRightClickMenu)
         self.treeView.bind("<ButtonRelease-1>", selectRow)
+
+    def loadSettings(self):
+        if os.path.exists(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini')):
+            config = cp.ConfigParser()
+            config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+            print(config.sections())
+            print(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+        else:
+            config = cp.ConfigParser()
+            config['Settings'] = {'busyWait': int(self.busyWait.get()), 'startFromSelected': int(self.startFromSelected.get()),  'selectedApp': str(self.selectedApp), 'hiddenMode': int(self.hiddenMode.get())}
+            config['Tabs'] = {'openTabs': str('|'.join(self.treeTabs))}
+            with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+                config.write(configfile)
+
 
     def tabRefresh(self, event):
         print('tabRefresh')
@@ -311,6 +328,11 @@ class treeviewNotebook:
 
         self.treeTabs.append(name)
         tabCount = len(self.treeTabs)
+
+        config = cp.ConfigParser()
+        config['Tabs'] = {'openTabs': str('|'.join(self.treeTabs))}
+        with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+            config.write(configfile)
 
         self.notebook.add(self.tabFrame, text=name)
         self.notebook.select(self.tabFrame)
@@ -380,6 +402,10 @@ class rightClickMenu():
         if len(tN.getNotebook().tabs()) > 1:
             del tN.treeTabs[tN.getNotebook().index(tN.getNotebook().select())]
             tN.getNotebook().forget("current")
+            config = cp.ConfigParser()
+            config['Tabs'] = {'openTabs': str('|'.join(self.treeTabs))}
+            with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+                config.write(configfile)
 
 
 class CreateToolTip(object):
@@ -560,13 +586,6 @@ def monitorExit():
 # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
 # Intentionally uses busy wait for most accurate delays
 def startClickingBusy(clickArray, loopsParam, mainLoop):
-    # When start from selected row setting is true then find highlighted row(s) and skip to from first selected row
-    if tN.startFromSelected == 1:
-        rows = tN.treeView.selection()
-        for row in rows:
-            print(tN.treeView.item(row))
-            #tN.treeView.item(row, values=(x.get(), y.get(), actionEntry.get(), delayEntry.get(), commentEntry.get()))
-
     # loop though param treeview, for param loops
     # needed so as to not mess with LoopsLeft from outer loop
     root.update()
@@ -577,6 +596,13 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
     clickTime = 0
     prevDelay = 0
     blnDelay = False
+    firstLoop = True
+    selection = tN.treeView.selection()
+    startFromSelected = tN.startFromSelected.get()
+    if len(selection) > 0:
+        selectedRow = tN.treeView.item(selection[0]).get("values")[0]
+    else:
+        selectedRow = 0
 
     # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
     while loopsParam > 0 and loopsLeft.get() > 0:
@@ -585,6 +611,11 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
         print("New loop")
         for row in clickArray:
             if loopsParam == 0 or loopsLeft.get() == 0: return
+
+            # When start from selected row setting is true then find highlighted row(s) and skip to from first selected row
+            # Only for first loop and first macro, not for subsequent loops nor macros called by the starting macro
+            if firstLoop and mainLoop and startFromSelected == 1 and selectedRow > 0 and intLoop < selectedRow:
+                continue
 
             # check row to see if its still holding keys
             if len(tN.currPressed) > 0 and (row[2] == "" or row[2][0] == '_'):
@@ -911,12 +942,8 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
 
             # When start from selected row setting is true then find highlighted row(s) and skip to from first selected row
             # Only for first loop and first macro, not for subsequent loops nor macros called by the starting macro
-            if firstLoop and mainLoop:
-                if startFromSelected == 1 and selectedRow > 0:
-                    # print(selection)
-                    print(tN.treeView.item(selection[0]).get("values"))
-                    if intLoop < selectedRow:
-                        continue
+            if firstLoop and mainLoop and startFromSelected == 1 and selectedRow > 0 and intLoop < selectedRow:
+                continue
 
             # check row to see if its still holding keys
             if len(tN.currPressed) > 0 and (row[2] == "" or row[2][0] == '_'):
@@ -1545,7 +1572,7 @@ def showSettings():
         # Rows 0 and 1
         busyLabel = Label(tN.settingsWindow, text="Use Busy Wait", borderwidth=2)
         busyLabel.grid(row=0, column=0, padx=10)
-        busyButton = Checkbutton(tN.settingsWindow, variable=tN.busyWait, onvalue=1, offvalue=0, borderwidth=2)
+        busyButton = Checkbutton(tN.settingsWindow, variable=tN.busyWait, onvalue=1, offvalue=0, command=toggleBusy, borderwidth=2)
         busyButton.grid(row=1, column=0, padx=10, pady=10)
 
         windowLabel = Label(tN.settingsWindow, text="Application Selector", borderwidth=2)
@@ -1555,31 +1582,52 @@ def showSettings():
 
         hiddenLabel = Label(tN.settingsWindow, text="Use hidden mode", borderwidth=2)
         hiddenLabel.grid(row=0, column=2, sticky='s', padx=10)
-        hiddenButton = Checkbutton(tN.settingsWindow, variable=tN.hiddenMode, onvalue=1, offvalue=0)
+        hiddenButton = Checkbutton(tN.settingsWindow, variable=tN.hiddenMode, onvalue=1, offvalue=0, command=toggleHidden)
         hiddenButton.grid(row=1, column=2, sticky='n', padx=10, pady=10)
 
         # Rows 3 and 4
         startFromSelectedLabel = Label(tN.settingsWindow, text="Start From Selected Row", borderwidth=2)
         startFromSelectedLabel.grid(row=3, column=0, padx=10)
-        startFromSelectedButton = Checkbutton(tN.settingsWindow, variable=tN.startFromSelected, onvalue=1, offvalue=0, borderwidth=2)
+        startFromSelectedButton = Checkbutton(tN.settingsWindow, variable=tN.startFromSelected, onvalue=1, offvalue=0, command=toggleStartFromSelected, borderwidth=2)
         startFromSelectedButton.grid(row=4, column=0, padx=10, pady=10)
 
         closeButton = ttk.Button(tN.settingsWindow, text="Close", command=closeSettings)
         closeButton.grid(row=5, column=1, padx=10, pady=10)
-
+0
 
 def closeSettings():
     tN.settingsWindow.destroy()
     tN.settingsWindow = None
+    # config['Settings'] = {'busyWait': str(tN.busyWait.get()), 'startfromselected': str(tN.startFromSelected.get()), 'selectedApp': str(tN.selectedApp), 'hiddenMode': str(tN.hiddenMode.get())}
+
+
+def toggleBusy():
+    config = cp.ConfigParser()
+    config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+    config.set('Settings', 'busyWait', str(tN.busyWait.get()))
+    with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+        config.write(configfile)
+
+
+def toggleHidden():
+    config = cp.ConfigParser()
+    config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+    config.set('Settings', 'hiddenMode', str(tN.hiddenMode.get()))
+    with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+        config.write(configfile)
+
+
+def toggleStartFromSelected():
+    config = cp.ConfigParser()
+    config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+    config.set('Settings', 'startfromselected', str(tN.startFromSelected.get()))
+    with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+        config.write(configfile)
 
 
 def closeHelp():
     tN.helpWindow.destroy()
     tN.helpWindow = None
-
-
-def saveSettings():
-    klet = 1
 
 
 def windowFinder():
@@ -1599,6 +1647,13 @@ def getWindow():
     finally:
         root.wm_state("normal")
         mouse.unhook_all()
+
+    config = cp.ConfigParser()
+    config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+    config.set('Settings', 'selectedApp', str(tN.selectedApp))
+    with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+        config.write(configfile)
+
 
 
 def onClose():
