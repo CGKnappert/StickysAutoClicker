@@ -51,7 +51,7 @@ The imports used are for:
 build with "pyinstaller --onefile --noconsole --icon=StickyHeadIcon.ico StickysAutoClicker.py"
 """
 
-usabilityNotes = ("                 Usability Notes\n\n"
+USABILITY_NOTES = ("                 Usability Notes\n\n"
                   " - Selecting any row of a macro will auto-removeulate the X and Y positions, delay and action fields with the values of that row, overwriting anything previously entered.\n"
                   " - Shift + Ctrl + ` will set loops to 0 and stop the autoclicker immediately.\n"
                   " - Overwrite will set all selected rows to the current X, Y, delay and action values.\n"
@@ -72,6 +72,8 @@ usabilityNotes = ("                 Usability Notes\n\n"
                   "           Confidence of 100 will find an exact match and confidence of 1 will find the first roughly similar image.\n"
                   "           If image is not found then loop will end and next loop will start.\n"
                   " - Finding an image will try 5 times with a .1 second delay if not found and click once found.\n")
+
+FILE_PATH = os.path.join(os.path.expanduser(r'~\Documents'), r'StickysAutoClicker')
 
 root = Tk()
 global_monitor_left = 0
@@ -238,7 +240,6 @@ class treeviewNotebook:
 
         self.notebook = ttk.Notebook(self.frame)
         self.tabFrame = tk.Frame(self.notebook, bg=bgColor)
-        self.notebook.add(self.tabFrame, text='macro1')
         self.notebook.grid(row=2, column=2, columnspan=8, rowspan=1)
         self.notebook.bind('<<NotebookTabChanged>>', self.tabRefresh)
 
@@ -250,7 +251,6 @@ class treeviewNotebook:
         # treeviewStyle.map("treeviewStyle.style")
         self.treeView = ttk.Treeview(self.treeFrame, selectmode="extended") #, style="treeviewStyle.style")
         self.treeView['show'] = 'headings'
-        self.treeTabs.append('macro1')
 
         self.verticalTabScroll = Scrollbar(self.treeFrame, orient='vertical', command=self.treeView.yview)
         self.verticalTabScroll.pack(side=RIGHT, fill=Y)
@@ -280,16 +280,81 @@ class treeviewNotebook:
         self.treeView.bind("<ButtonRelease-1>", selectRow)
 
     def loadSettings(self):
-        if os.path.exists(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini')):
+        if not os.path.exists(FILE_PATH):
+            os.mkdir(FILE_PATH)
+
+        if not os.path.exists(os.path.join(FILE_PATH, r'Macros')):
+            folder = "Macros"
+            path = os.path.join(FILE_PATH, folder)
+            os.mkdir(path)
+
+        if not os.path.exists(os.path.join(FILE_PATH, r'Images')):
+            folder = "Images"
+            path = os.path.join(os.path.join(FILE_PATH, ''), folder)
+            os.mkdir(path)
+
+        if os.path.exists(os.path.join(FILE_PATH, r'config.ini')):
             config = cp.ConfigParser()
-            config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+            config.read(os.path.join(FILE_PATH, r'config.ini'))
+            updateConfig = False
+
+            if config.has_option("Settings", "busywait"):
+                self.busyWait.set(config.get("Settings", "busywait"))
+            else:
+                config.set('Settings', 'busywait', str(self.busyWait.get()))
+                updateConfig = True
+
+            if config.has_option("Settings", "startfromselected"):
+                self.startFromSelected.set(config.get("Settings", "startfromselected"))
+            else:
+                config.set('Settings', 'startfromselected', str(self.startFromSelected.get()))
+                updateConfig = True
+
+            if config.has_option("Settings", "hiddenmode"):
+                self.hiddenMode.set(config.get("Settings", "hiddenmode"))
+            else:
+                config.set('Settings', 'hiddenmode', str(self.hiddenMode.get()))
+                updateConfig = True
+
+            if config.has_option("Settings", "selectedapp"):
+                self.hiddenMode.set(config.get("Settings", "selectedapp"))
+            else:
+                config.set('Settings', 'selectedapp',  str(self.selectedApp))
+                updateConfig = True
+
+            if config.has_option("Tabs", "opentabs"):
+                openTabs = config.get("Tabs", "opentabs").split("|")
+                if len(openTabs) == 1 and openTabs[0] =='':
+                    # config file is blank, open macro1 like old times
+                    self.notebook.add(self.tabFrame, text='macro1')
+                    self.treeTabs.append('macro1')
+                    config['Tabs'] = {'opentabs': str('|'.join(self.treeTabs))}
+                    updateConfig = True
+                else:
+                    for tab in openTabs:
+                        self.addTab(tab)
+            else:
+                # config file doesnt exist, open macro1 like old times
+                self.notebook.add(self.tabFrame, text='macro1')
+                self.treeTabs.append('macro1')
+                config['Tabs'] = {'opentabs': str('|'.join(self.treeTabs))}
+                updateConfig = True
+
+            if updateConfig:
+                with open(os.path.join(FILE_PATH, r'config.ini'), 'w') as configfile:
+                    config.write(configfile)
+
             print(config.sections())
-            print(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+            print(os.path.join(FILE_PATH, r'config.ini'))
         else:
+            self.notebook.add(self.tabFrame, text='macro1')
+            self.treeTabs.append('macro1')
+
             config = cp.ConfigParser()
             config['Settings'] = {'busyWait': int(self.busyWait.get()), 'startFromSelected': int(self.startFromSelected.get()),  'selectedApp': str(self.selectedApp), 'hiddenMode': int(self.hiddenMode.get())}
             config['Tabs'] = {'openTabs': str('|'.join(self.treeTabs))}
-            with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+
+            with open(os.path.join(FILE_PATH, r'config.ini'), 'w') as configfile:
                 config.write(configfile)
 
 
@@ -302,7 +367,7 @@ class treeviewNotebook:
         tab = event.widget.tab('current')['text']
 
         # import csv file into macro where filename will be macro name, is it best to import only exported macros
-        filename = os.path.join(os.getcwd() + r'\Macros', tab + '.csv')
+        filename = os.path.join(FILE_PATH + r'\Macros', tab + '.csv')
         fileExists = exists(filename)
 
         if fileExists:
@@ -329,10 +394,14 @@ class treeviewNotebook:
         self.treeTabs.append(name)
         tabCount = len(self.treeTabs)
 
-        config = cp.ConfigParser()
-        config['Tabs'] = {'openTabs': str('|'.join(self.treeTabs))}
-        with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
-            config.write(configfile)
+        try:
+            config = cp.ConfigParser()
+            config.read(os.path.join(FILE_PATH, r'config.ini'))
+            config.set('Tabs', 'openTabs', str('|'.join(self.treeTabs)))
+            with open(os.path.join(FILE_PATH, 'config.ini'), 'w') as configfile:
+                config.write(configfile)
+        except:
+            pass
 
         self.notebook.add(self.tabFrame, text=name)
         self.notebook.select(self.tabFrame)
@@ -402,9 +471,11 @@ class rightClickMenu():
         if len(tN.getNotebook().tabs()) > 1:
             del tN.treeTabs[tN.getNotebook().index(tN.getNotebook().select())]
             tN.getNotebook().forget("current")
+
             config = cp.ConfigParser()
-            config['Tabs'] = {'openTabs': str('|'.join(self.treeTabs))}
-            with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+            config.read(os.path.join(FILE_PATH, 'config.ini'))
+            config.set('Tabs', 'openTabs',  str('|'.join(tN.treeTabs)))
+            with open(os.path.join(FILE_PATH, 'config.ini'), 'w') as configfile:
                 config.write(configfile)
 
 
@@ -535,7 +606,7 @@ def threadStartClicking():
     tN.stopButton.config(state=NORMAL)
 
     try:
-        clickArray = list(csv.reader(open(os.getcwd() + r'\Macros' + '\\' + str(
+        clickArray = list(csv.reader(open(FILE_PATH + r'\Macros' + '\\' + str(
             tN.getNotebook().tab(tN.getNotebook().select(), 'text').replace(r'/', r'-').replace(r'\\', r'-').replace(
                 r'*', r'-').replace(r'?', r'-').replace(r'[', r'-').replace(r']', r'-').replace(r'<', r'-').replace(
                 r'>', r'-').replace(r'|', r'-')) + '.csv', mode='r')))
@@ -549,9 +620,9 @@ def threadStartClicking():
         # using wait instead of sleep lets thread stop when Stop Clicking is clicked while waiting allow the thread to be quickly killed
         # because if Start Clicking is clicked before thread is killed this will overwrite saved thread and prevent setting event with intent to kill thread
         threadFlag = threading.Event()
-        if tN.busyWait == 1:
+        if tN.busyWait.get() == 1:
             tN.activeThread = threading.Thread(target=startClickingBusy,
-                                           args=(clickArray, int(loopEntry.get()), True))
+                                           args=(clickArray, threadFlag, int(loopEntry.get()), True))
         else:
             tN.activeThread = threading.Thread(target=startClicking,
                                            args=(clickArray, threadFlag, int(loopEntry.get()), True))
@@ -585,11 +656,11 @@ def monitorExit():
 
 # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
 # Intentionally uses busy wait for most accurate delays
-def startClickingBusy(clickArray, loopsParam, mainLoop):
+def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
     # loop though param treeview, for param loops
     # needed so as to not mess with LoopsLeft from outer loop
     root.update()
-    startTime = time.time()
+    print("startClickingBusy")
 
     if loopsParam == 0 or loopsLeft.get() == 0: return
 
@@ -606,11 +677,14 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
 
     # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
     while loopsParam > 0 and loopsLeft.get() > 0:
+        print("New loop")
+
+        intLoop = 0
         startTime = time.time()
 
-        print("New loop")
         for row in clickArray:
             if loopsParam == 0 or loopsLeft.get() == 0: return
+            intLoop += 1
 
             # When start from selected row setting is true then find highlighted row(s) and skip to from first selected row
             # Only for first loop and first macro, not for subsequent loops nor macros called by the starting macro
@@ -621,12 +695,12 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
             if len(tN.currPressed) > 0 and (row[2] == "" or row[2][0] == '_'):
                 # stop time if next action is not hold
                 toBePressed = []
-                if row[2][0] == '_':
+                if row[2] != "" and row[2][0] == '_':
                     toBePressed = row[2][1:].split('|')
 
                 # key hold and release is action
                 # print('PreRelease', (prevDelay / 1000), time.time() - clickTime)
-                while time.time() < clickTime + (int(prevDelay) / 1000):
+                while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                     pass
                 blnDelay = False
                 # print('PreReleasePostWait', (prevDelay / 1000), time.time() - clickTime)
@@ -657,7 +731,7 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
             elif len(tN.currPressed) > 0:
                 # print('PreRelease', str(pressed), (int(row[3]) / 1000), time.time() - clickTime)
                 # if blnDelay:
-                while time.time() < clickTime + (int(prevDelay) / 1000):
+                while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                     pass
                 # blnDelay = False
                 # print('PreReleaseWait', (int(row[3]) / 1000), time.time() - clickTime)
@@ -685,12 +759,14 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                 # if this row is not a press then wait to start timer until next click
                 clickTime = time.time()
 
+            if loopsParam == 0 or loopsLeft.get() == 0: return
+
             # Empty must be first because other references to first character of Action will error
             if row[2] == "":
                 # Nothing is just a pause
                 print("blank", (int(row[3]) / 1000), time.time() - clickTime)
                 if blnDelay:
-                    while time.time() < clickTime + (int(prevDelay) / 1000):
+                    while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                         pass
                 clickTime = time.time()
             # Moved _ hold action as close top as possible as it's accuracy is most important
@@ -701,7 +777,7 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
 
                 # wait prior row amount before pressing new keys
                 if blnDelay:
-                    while time.time() < clickTime + (int(prevDelay) / 1000):
+                    while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                         pass
 
                 for key in toPress:
@@ -750,14 +826,14 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                     # mouse click is action
                     if row[2] == 'M1':
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000):
+                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                                 pass
                         pyautogui.click(int(row[0]), int(row[1]), button='left')
                         clickTime = time.time()
 
                     elif row[2] == 'M3':
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000):
+                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                                 pass
                         pyautogui.moveTo(int(row[0]), int(row[1]))
                         pyautogui.mouseDown(button='right')
@@ -766,7 +842,7 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                         clickTime = time.time()
                     else:
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000):
+                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                                 pass
                         pyautogui.click(int(row[0]), int(row[1]), button='middle')
                         clickTime = time.time()
@@ -775,13 +851,13 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                     # mouse click is action without position, do not move, just click
                     if row[2] == 'M1':
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000):
+                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                                 pass
                         pyautogui.click(button='left')
                         clickTime = time.time()
                     elif row[2] == 'M3':
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000):
+                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                                 pass
                         pyautogui.mouseDown(button='right')
                         time.sleep(.1)
@@ -789,10 +865,11 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                         clickTime = time.time()
                     else:
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000):
+                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                                 pass
                         pyautogui.click(button='middle')
                         clickTime = time.time()
+                    print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
 
             # Action is #string, find image in Images folder with string name
             elif row[2][0] == '#' and len(row[2]) > 1:
@@ -803,9 +880,9 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                 if 100 >= int(confidence) > 0:
                     for a in range(5):
                         try:
-                            # print(os.getcwd() + r'\Images' + '\\' + str(row[2][1:len(row[2])]) + '.png')
+                            # print(FILE_PATH + r'\Images' + '\\' + str(row[2][1:len(row[2])]) + '.png')
                             # Confidence specified, use Delay as confidence percentile
-                            position = pyautogui.locateCenterOnScreen(os.getcwd() + r'\Images' + '\\' + str(
+                            position = pyautogui.locateCenterOnScreen(FILE_PATH + r'\Images' + '\\' + str(
                                 row[2][1:len(row[2])]) + '.png', confidence=int(confidence) / 100)
                         except IOError:
                             pass
@@ -813,7 +890,7 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                     if position:
                         # print("Found image at: ", position[0], ' : ', position[1])
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000):
+                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                                 pass
                         pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                         clickTime = time.time()
@@ -823,8 +900,8 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                     # confidence could not be determined, use default
                     for a in range(5):
                         try:
-                            # print(os.getcwd() + r'\Images' + '\\' + str(row[2][1:len(row[2])]) + '.png')
-                            position = pyautogui.locateCenterOnScreen(os.getcwd() + r'\Images' + '\\' + str(
+                            # print(FILE_PATH + r'\Images' + '\\' + str(row[2][1:len(row[2])]) + '.png')
+                            position = pyautogui.locateCenterOnScreen(FILE_PATH + r'\Images' + '\\' + str(
                                 row[2][1:len(row[2])]) + '.png',
                                                                       confidence=int(confidence) / 100)
                         except IOError:
@@ -833,7 +910,7 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
                     if position:
                         # print("Found image at: ", position[0], ' : ', position[1])
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000):
+                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                                 pass
                         pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                         clickTime = time.time()
@@ -843,40 +920,38 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
             # Action is !string, run macro with string name for Delay amount of times
             elif row[2][0] == '!' and len(row[2]) > 1:
                 # macro is action, repeat for amount in delay
-                if exists(os.getcwd() + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv'):
+                if exists(FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv'):
                     arrayParam = list(csv.reader(
-                        open(os.getcwd() + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv',
+                        open(FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv',
                              mode='r')))
-                    print("file: ", os.getcwd() + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv')
-                    startClickingBusy(arrayParam, int(row[3]), False)
+                    print("file: ", FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv')
+                    startClickingBusy(arrayParam, threadFlag, int(row[3]), False)
             else:
                 # print(row[2])
                 # key press is action
                 if row[2] != 'space':
                     if blnDelay:
-                        while time.time() < clickTime + (int(prevDelay) / 1000):
+                        while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                             pass
                     pyautogui.press(row[2])
                     clickTime = time.time()
                 elif row[2] == 'space':
                     if blnDelay:
-                        while time.time() < clickTime + (int(prevDelay) / 1000):
+                        while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                             pass
                     pyautogui.press(' ')
                     clickTime = time.time()
                 if row[2] == 'tab':
                     if blnDelay:
-                        while time.time() < clickTime + (int(prevDelay) / 1000):
+                        while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
                             pass
                     pyautogui.press('\t')
                     clickTime = time.time()
                 else:
                     clickTime = time.time()
+                print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
 
             if loopsParam == 0 or loopsLeft.get() == 0: return
-            # Only sleep if row is not macro, image finder, or key hold
-            # if row[2][0] != '!' and row[2][0] != '#' and (len(row[2]) == 1 or row[2][0] != '_'):
-            #     print(int(row[3]) / 1000)
 
             prevDelay = int(row[3])
             blnDelay = row[2] == "" or row[2][0] != "_"
@@ -884,8 +959,9 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
         # decrement loop count param, also decrement main loop counter if main loop
         if loopsParam > 0: loopsParam = loopsParam - 1
         if mainLoop and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
+        firstLoop = False
     # if blnDelay:
-    while time.time() < clickTime + (int(prevDelay) / 1000):
+    while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
         pass
     # Release all keys that are pressed so as to not leave pressed
     # Necessary to be outside of loop because last row in macro will expect next row to release right prior to next press.
@@ -902,6 +978,10 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
             pyautogui.keyUp(' ')
         elif pressedKey == 'tab':
             pyautogui.keyUp('\t')
+        try:
+            tN.currPressed.remove(key)
+        except:
+            pass
         print("Release3 " + str(pressedKey) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
         # print("Release " + str(pressedKey) + " after " + str(time.time() - clickTime))
 
@@ -915,6 +995,7 @@ def startClickingBusy(clickArray, loopsParam, mainLoop):
 # Intentionally uses busy wait for most accurate delays
 def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
     root.update()
+    print("startClicking")
 
     if loopsParam == 0 or loopsLeft.get() == 0: return
 
@@ -978,7 +1059,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                         except:
                             pass
                         # print("Release " + str(key) + " after " + str(time.time() - clickTime))
-                        print("Release " + str(key) + " after total " + str(time.time() - clickTime))
+                        print("Release " + str(key) + " after total " + str(time.time() - startTime))
                         print("Release1 " + str(key) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
                 # if this row is also a press then start timer as hols is continuing
                 # clickTime = time.time()
@@ -1008,10 +1089,12 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                     except:
                         pass
                         # print("Release " + str(key) + " after " + str(time.time() - clickTime))
-                    print("Release " + str(key) + " after total " + str(time.time() - clickTime))
+                    print("Release " + str(key) + " after total " + str(time.time() - startTime))
                     print("Release2 " + str(key) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
                 # if this row is not a press then wait to start timer until next click
                 clickTime = time.time()
+
+            if loopsParam == 0 or loopsLeft.get() == 0: return
 
             # Empty must be first because other references to first character of Action will error
             if row[2] == "":
@@ -1098,7 +1181,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                                 return
                         pyautogui.click(int(row[0]), int(row[1]), button='middle')
                         clickTime = time.time()
-                    print("Press " + str(row[2]) + " at " + str(time.time() - clickTime))
+                    print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
                 else:
                     # mouse click is action without position, do not move, just click
                     if row[2] == 'M1':
@@ -1121,6 +1204,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                                 return
                         pyautogui.click(button='middle')
                         clickTime = time.time()
+                    print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
 
             # Action is #string, find image in Images folder with string name
             elif row[2][0] == '#' and len(row[2]) > 1:
@@ -1131,9 +1215,9 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                 if 100 >= int(confidence) > 0:
                     for a in range(5):
                         try:
-                            # print(os.getcwd() + r'\Images' + '\\' + str(row[2][1:len(row[2])]) + '.png')
+                            # print(FILE_PATH + r'\Images' + '\\' + str(row[2][1:len(row[2])]) + '.png')
                             # Confidence specified, use Delay as confidence percentile
-                            position = pyautogui.locateCenterOnScreen(os.getcwd() + r'\Images' + '\\' + str(
+                            position = pyautogui.locateCenterOnScreen(FILE_PATH + r'\Images' + '\\' + str(
                                 row[2][1:len(row[2])]) + '.png', confidence=int(confidence) / 100)
                         except IOError:
                             pass
@@ -1151,8 +1235,8 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                     # confidence could not be determined, use default
                     for a in range(5):
                         try:
-                            # print(os.getcwd() + r'\Images' + '\\' + str(row[2][1:len(row[2])]) + '.png')
-                            position = pyautogui.locateCenterOnScreen(os.getcwd() + r'\Images' + '\\' + str(
+                            # print(FILE_PATH + r'\Images' + '\\' + str(row[2][1:len(row[2])]) + '.png')
+                            position = pyautogui.locateCenterOnScreen(FILE_PATH + r'\Images' + '\\' + str(
                                 row[2][1:len(row[2])]) + '.png',
                                                                       confidence=int(confidence) / 100)
                         except IOError:
@@ -1171,11 +1255,11 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
             # Action is !string, run macro with string name for Delay amount of times
             elif row[2][0] == '!' and len(row[2]) > 1:
                 # macro is action, repeat for amount in delay
-                if exists(os.getcwd() + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv'):
+                if exists(FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv'):
                     arrayParam = list(csv.reader(
-                        open(os.getcwd() + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv',
+                        open(FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv',
                              mode='r')))
-                    print("file: ", os.getcwd() + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv')
+                    print("file: ", FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv')
                     startClicking(arrayParam, threadFlag, int(row[3]), False)
             else:
                 # print(row[2])
@@ -1203,9 +1287,6 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                 print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
 
             if loopsParam == 0 or loopsLeft.get() == 0: return
-            # Only sleep if row is not macro, image finder, or key hold
-            # if row[2][0] != '!' and row[2][0] != '#' and (len(row[2]) == 1 or row[2][0] != '_'):
-            #     print(int(row[3]) / 1000)
 
             prevDelay = int(row[3])
             blnDelay = row[2] == "" or row[2][0] != "_"
@@ -1232,6 +1313,10 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
             pyautogui.keyUp(' ')
         elif pressedKey == 'tab':
             pyautogui.keyUp('\t')
+        try:
+            tN.currPressed.remove(key)
+        except:
+            pass
         print("Release3 " + str(pressedKey) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
         # print("Release " + str(pressedKey) + " after " + str(time.time() - clickTime))
 
@@ -1245,6 +1330,8 @@ def stopClicking():
     # Reset clicker back to off state
     if tN.activeThread:
         tN.activeThread.threadFlag.set()
+        # tN.activeThread.join()/
+
     loopsLeft.set(0)
 
     # Release all keys that are pressed so as to not leave pressed
@@ -1357,7 +1444,7 @@ def reorderRows(treeView):
 
 def importMacro():
     # import csv file into macro where filename will be macro name, is it best to import only exported macros
-    filename = filedialog.askopenfilename(initialdir=os.getcwd() + r'\Macros', title="Select a .csv file",
+    filename = filedialog.askopenfilename(initialdir=FILE_PATH + r'\Macros', title="Select a .csv file",
                                           filetypes=(("csv files", "*.csv"),))
     answer = True
     found = 0
@@ -1377,23 +1464,12 @@ def importMacro():
             csvReader = csv.reader(csvFile)
             if not found:
                 tN.addTab(os.path.splitext(os.path.basename(filename))[0])
-            # else:
-            #     tN.notebook.select(found - 1)
-            #     tN.getTabTree(found - 1).delete(*tN.getTabTree(found - 1).get_children())
-            # for line in csvReader:
-            #     print(line)
-            #     print(len(line))
-            #     #backwards compatibility to before there were comments
-            #     if len(line) > 4:
-            #         addRowWithParams(line[0], line[1], line[2], line[3], line[4])
-            #     if line[3]:
-            #         addRowWithParams(line[0], line[1], line[2], line[3], "")
 
 
 def exportMacro():
     print('export')
     # save as csv file with name of file as macro name
-    savePath = os.getcwd() + r'\Macros'
+    savePath = FILE_PATH + r'\Macros'
     filename = str(
         tN.getNotebook().tab(tN.getNotebook().select(), 'text').replace(r'/', r'-').replace(r'\\', r'-').replace(r'*',
                                                                                                                  r'-').replace(
@@ -1548,7 +1624,7 @@ def showHelp():
         tN.helpWindow.wm_title("Sticky's Autoclicker Help")
         tN.helpWindow.protocol("WM_DELETE_WINDOW", closeHelp)
 
-        helpLabel = Label(tN.helpWindow, text=usabilityNotes, justify=LEFT)
+        helpLabel = Label(tN.helpWindow, text=USABILITY_NOTES, justify=LEFT)
         helpLabel.grid(row=0, column=0)
 
         closeButton = ttk.Button(tN.helpWindow, text="Close", command=closeHelp)
@@ -1558,7 +1634,7 @@ def showHelp():
 def showSettings():
     if tN.settingsWindow is not None:
         if tN.settingsWindow.state() == "normal":
-            saveSettings()
+            # saveSettings()
             closeSettings()
         else:
             tN.settingsWindow.wm_state("normal")
@@ -1602,27 +1678,36 @@ def closeSettings():
 
 
 def toggleBusy():
-    config = cp.ConfigParser()
-    config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
-    config.set('Settings', 'busyWait', str(tN.busyWait.get()))
-    with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
-        config.write(configfile)
+    try:
+        config = cp.ConfigParser()
+        config.read(os.path.join(FILE_PATH, 'config.ini'))
+        config.set('Settings', 'busyWait', str(tN.busyWait.get()))
+        with open(os.path.join(FILE_PATH, 'config.ini'), 'w') as configfile:
+            config.write(configfile)
+    except:
+        pass
 
 
 def toggleHidden():
-    config = cp.ConfigParser()
-    config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
-    config.set('Settings', 'hiddenMode', str(tN.hiddenMode.get()))
-    with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
-        config.write(configfile)
+    try:
+        config = cp.ConfigParser()
+        config.read(os.path.join(FILE_PATH, 'config.ini'))
+        config.set('Settings', 'hiddenMode', str(tN.hiddenMode.get()))
+        with open(os.path.join(FILE_PATH, 'config.ini'), 'w') as configfile:
+            config.write(configfile)
+    except:
+        pass
 
 
 def toggleStartFromSelected():
-    config = cp.ConfigParser()
-    config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
-    config.set('Settings', 'startfromselected', str(tN.startFromSelected.get()))
-    with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
-        config.write(configfile)
+    try:
+        config = cp.ConfigParser()
+        config.read(os.path.join(FILE_PATH, 'config.ini'))
+        config.set('Settings', 'startfromselected', str(tN.startFromSelected.get()))
+        with open(os.path.join(FILE_PATH, 'config.ini'), 'w') as configfile:
+            config.write(configfile)
+    except:
+        pass
 
 
 def closeHelp():
@@ -1649,9 +1734,9 @@ def getWindow():
         mouse.unhook_all()
 
     config = cp.ConfigParser()
-    config.read(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'))
+    config.read(os.path.join(FILE_PATH, 'config.ini'))
     config.set('Settings', 'selectedApp', str(tN.selectedApp))
-    with open(os.path.expanduser('~/Documents/StickysAutoClicker/config.ini'), 'w') as configfile:
+    with open(os.path.join(FILE_PATH, 'config.ini'), 'w') as configfile:
         config.write(configfile)
 
 
