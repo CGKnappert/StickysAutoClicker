@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e4ca071f-bd78-428b-b176-77ea83e670fc" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/StickysAutoClicker.py" beforeDir="false" afterPath="$PROJECT_DIR$/StickysAutoClicker.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -14,6 +15,14 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
   </component>
   <component name="ProjectId" id="2M5IXqjO3f0aBkXzAaFOeusEoFN" />
   <component name="ProjectViewState">
@@ -97,15 +106,21 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/StickysAutoClicker.py</url>
-          <line>1150</line>
-          <option name="timeStamp" value="9" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/StickysAutoClicker.py</url>
-          <line>588</line>
-          <option name="timeStamp" value="10" />
+          <line>1758</line>
+          <option name="timeStamp" value="29" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="time.time() &lt; clickTime + (int(prevDelay) / 1000)" />
+        <watch expression="tN.pauseEvent.wait()" />
+        <watch expression="time.time() &lt; clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait()" />
+        <watch expression="row[2]" />
+        <watch expression="treeView.item(row)['tags']" />
+        <watch expression="tN.runningRows" />
+        <watch expression="tN.treeView.item(row)['tags']" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>

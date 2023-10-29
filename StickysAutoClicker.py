@@ -1,4 +1,6 @@
 import os
+import ctypes
+errorCode = ctypes.windll.shcore.SetProcessDpiAwareness(0)
 import time
 import csv
 import mouse
@@ -18,6 +20,8 @@ from tkinter import ttk
 from tkinter import filedialog
 from tkinter import simpledialog
 from tkinter.messagebox import askyesno
+# import TKinterModernThemes as TKMT
+
 
 from PIL import ImageGrab
 from functools import partial
@@ -25,7 +29,7 @@ import configparser as cp
 
 ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
 pyautogui.FAILSAFE = False
-pyautogui.PAUSE = False 
+pyautogui.PAUSE = False
 
 # TODO: Export crash reports
 # TODO: Make prettier
@@ -51,27 +55,36 @@ The imports used are for:
 build with "pyinstaller --onefile --noconsole --icon=StickyHeadIcon.ico StickysAutoClicker.py"
 """
 
-USABILITY_NOTES = ("                 Usability Notes\n\n"
-                  " - Selecting any row of a macro will auto-removeulate the X and Y positions, delay and action fields with the values of that row, overwriting anything previously entered.\n"
-                  " - Shift + Ctrl + ` will set loops to 0 and stop the autoclicker immediately.\n"
-                  " - Overwrite will set all selected rows to the current X, Y, delay and action values.\n"
-                  " - Macros are exported as csv files that are writes to folder '\Macros' in exe directory.\n"
-                  " - Exported Files are kept up to date with each edit created.\n"
-                  " - Import expects a comma separated file with no headers and only four columns: X, Y, Action, Delay\n"
-                  " - Macros do not need to be in a tab to be called by another macro. The csv in the Macros folder will be used, so be sure that is up to date.\n"
-                  " - Action will recognize the main three mouse clicks as well as any keyboard action including Shift + keys (doesn't work with Alt or Ctrl + keys)\n"
+USABILITY_NOTES = (" - Selecting any row of a macro will auto-populate the X and Y positions, delay, action and comment fields with the values of that row, overwriting anything previously entered.\n"
+                  " - Shift + LCtrl + ` will set loops to 0 and stop the autoclicker immediately.\n"
+                  " - Shift + LCtrl + Tab will pause the autoclicker and pressing that key combination again will start the autoclicker where it left off.\n"
+                  "           Remember you might need to focus back on the application to be clicked or key pressed before starting again.\n"
+                  " - Overwrite will set all selected rows to the current X, Y, delay, action and comment values.\n"
+                  " - Macros are exported as csv files that are written to folder '\StickyAutoClicker\Macros' in your Documents folder.\n"
+                  " - Exported macro files are kept up to date with each edit created.\n"
+                  " - Import expects a comma separated file with no headers and only five columns: X, Y, Action, Delay and Comment.\n"
+                  " - Action will recognize the main three mouse clicks as well as any keyboard action including Shift + keys (doesn't work with Alt or Ctrl + keys).\n"
                   " - Key presses do not move cursor, so X and Y positions do not matter.\n"
+                  " - The Start From Selected Row option in Settings will cause the macro to start from the first highlighted row in the macro or from the start if nothing is highlighted.\n"
                   " - Action has two escape characters, ! and #, that will allow the user to continue typing rather than overwriting the action key.\n"
                   "           This is to allow for calling another macro (!) or finding an image (#)\n"
-                  " - Action also allows underscore _ as a special character that will indicate the following key should be pressed and held for the set amount of time in the Delay field.\n"
-                  "           Note that for these rows the Delay no longer delays after the key is held. \n"
-                  " - Typing !macroName into action and adding that row will make a macro look for another tab in Sticky's Autoclicker with the tab name macroName and execute that macro.\n"
-                  "           Delay serves another purpose when used with a macro action (!macroName) and will call that macro for the delay amount of times\n"
-                  " - Typing #imageName into action and adding that row will make a macro look for a .png image with that name in the \Images folder and move the cursor to a found image and left click.\n"
-                  "           Delay serves even another purpose when used with a find image action (#imageName) and serve as the confidence percentage level.\n"
+                  " - Typing !macroName into action and adding that row will make the row look for another macro with a name matching what follows the ! and execute that macro.\n"
+                  "           Delay serves another purpose when used with a macro action and will repeat that macro for the amount of times in the Delay column.\n"
+                  "           Macros do not need to be in a tab to be called by another macro. The csv in the \StickyAutoClicker\Macros folder will be used if it exists.\n"
+                  " - Typing #imageName into action and adding that row will make a macro look for a .png image with that name in the \StickyAutoClicker\Images folder and move the cursor to a found image and left click.\n"
+                  "           Delay will serve as the confidence percentage level when used with a find image action.\n"
                   "           Confidence of 100 will find an exact match and confidence of 1 will find the first roughly similar image.\n"
-                  "           If image is not found then loop will end and next loop will start.\n"
-                  " - Finding an image will try 5 times with a .1 second delay if not found and click once found.\n")
+                  "           Finding an image will try 5 times with a .1 second delay if not found and click the image once found.\n"
+                  "           If image is not found then loop will end and next loop will start. This is to prevent the rest of the loop from going awry because the expected image was not found.\n"
+                  " - Action also allows underscore _ as a special character that will indicate the following key(s) should be pressed and held for the set amount of time in the Delay field.\n"
+                  "           Note that for these rows the Delay no longer delays after the key is held.\n"
+                  "           You can hold multiple keys at a time by continuing to type into the Action field once a _ has been entered. A | will delineate the different keys to be held.\n"
+                  "           Typing _ into action can also reset the field to remove keys you do not want pressed since backspace doesn't work.\n"
+                  " - The Record functionality will begin entering rows to the end of the current macro tab reading key presses and delays.\n"
+                  "           This functionality is quite accurate (for python) and can be quite efficien especially when paired with manual edits to shorten or remove unnessecary delays or actions.\n"
+                  "           For playback of recordings it is highly recommended to use the Busy Wait option in the Settings menu.\n"
+                  "           Busy Wait allows the delay to be accurate to around one millisecond where as non-Busy Wait is accurate to around 10-15 ms.\n"
+                  "           The downside of Busy Wait and why it shouldn't always be used is that it incurs heavy CPU usage and can be felt by users and other programs.")
 
 FILE_PATH = os.path.join(os.path.expanduser(r'~\Documents'), r'StickysAutoClicker')
 
@@ -85,17 +98,23 @@ with mss.mss() as sct:
         global_monitor_left = sct.monitors[0].get('left')
 
 
-class treeviewNotebook:
+class treeviewNotebook():
     notebook = None
     recorder = None
     window = None
 
     # Array for currently pressed keys so they can be unpressed when stopping clicking
     currPressed = []
+    runningRows = []
     busyWait = tk.IntVar()
     hiddenMode = tk.IntVar()
     startFromSelected = tk.IntVar()
     selectedApp = ''
+    exitListener= False
+    pauseListener = False
+    pauseFlag = False
+    pauseEvent = None
+    current = set()
 
     settingsWindow = None
     helpWindow = None
@@ -109,7 +128,8 @@ class treeviewNotebook:
     treeView = None
 
     # class with notebook with tabs of treeviews
-    def __init__(self):
+    def __init__(self, theme, mode):
+        # super().__init__("TITLE", theme, mode)
         self.initElements()
         self.initTab()
         self.loadSettings()
@@ -118,6 +138,8 @@ class treeviewNotebook:
         # Column 0
         # for reference: notebook.grid(row=3, column=2, columnspan=3, rowspan=5, sticky='')
         root.columnconfigure(0, weight=6)
+        # self.panedWindow = self.PanedWindow("Paned Window Test")
+        # self.pane1 = self.panedWindow.addWindow()
         self.welcomeLabel = Label(root, text="Sticky's Autoclicker", font=("Arial bold", 14), bg=bgColor)
         self.welcomeLabel.grid(row=0, column=0, padx=5, pady=0, sticky='n', columnspan=2)
         self.helpButton = Button(root, text="Help", bg=bgButton, command=showHelp, borderwidth=2)
@@ -175,10 +197,10 @@ class treeviewNotebook:
         root.columnconfigure(4, weight=10)
         self.timeLabel = Label(root, text="Delay (ms)", font=("Arial", 10), bg=bgColor)
         self.timeLabel.grid(row=0, column=4, padx=0, pady=0, sticky="nw")
-        delayEntry.grid(row=0, column=4, padx=0, pady=5, sticky='ne')
+        delayEntry.grid(row=0, column=4, padx=0, pady=3, sticky='ne')
 
         self.actionLabel = Label(root, text="Action", font=("Arial", 10), bg=bgColor)
-        self.actionLabel.grid(row=0, column=4, padx=0, sticky="sw")
+        self.actionLabel.grid(row=0, column=4, padx=0, pady=5, sticky="sw")
         actionEntry.grid(row=0, column=4, padx=0, pady=5, sticky='se')
 
         # bind this entry to all keyboard and mouse actions
@@ -217,7 +239,7 @@ class treeviewNotebook:
         root.rowconfigure(8, weight=0)
 
         delayToolTip = CreateToolTip(delayEntry,
-                                     "Delay in milliseconds to take place after click. If macro is specified this will be loop amount of that macro.")
+                                     "Delay in milliseconds to take place after click. If macro is specified this will be loop amount of that macro. If Action starts with underscore this will be the amount of time to hold listed keys.")
         actionToolTip = CreateToolTip(actionEntry,
                                       "Action to occur before delay. Accepts all mouse buttons and keystrokes. Type !macroname to call macro in another tab with delay amount as loops.")
 
@@ -238,18 +260,24 @@ class treeviewNotebook:
 
         self.frame.bind("<Configure>", self.frame_configure)
 
-        self.notebook = ttk.Notebook(self.frame)
+        treeviewStyle = ttk.Style()
+        treeviewStyle.theme_create("Custom.TNotebook")
+        rowStyle = treeviewStyle.theme_use("Custom.TNotebook")
+        treeviewStyle.theme_create("dummy", parent=rowStyle)
+        treeviewStyle.theme_use("dummy")
+        treeviewStyle.configure('Custom.TNotebook.Tab', padding=[2, 0])
+        treeviewStyle.configure('Custom.TNotebook.Tab', background=fgColor)
+        treeviewStyle.map('Custom.TNotebook.Tab', background=[("selected", selectedColor)])
+        treeviewStyle.configure('Custom.TNotebook', background=bgColor)
+
+        self.notebook = ttk.Notebook(self.frame, style="Custom.TNotebook")
         self.tabFrame = tk.Frame(self.notebook, bg=bgColor)
         self.notebook.grid(row=2, column=2, columnspan=8, rowspan=1)
         self.notebook.bind('<<NotebookTabChanged>>', self.tabRefresh)
 
         self.treeFrame = tk.Frame(root, bg=bgColor)
         self.treeFrame.grid(row=2, column=2, columnspan=6, rowspan=6, sticky="nsew", pady=(20, 0))
-        # treeviewStyle = ttk.Style()
-        # treeviewStyle.theme_use("default")
-        # treeviewStyle.configure("treeviewStyle.style", background="white")
-        # treeviewStyle.map("treeviewStyle.style")
-        self.treeView = ttk.Treeview(self.treeFrame, selectmode="extended") #, style="treeviewStyle.style")
+        self.treeView = ttk.Treeview(self.treeFrame, selectmode="extended")
         self.treeView['show'] = 'headings'
 
         self.verticalTabScroll = Scrollbar(self.treeFrame, orient='vertical', command=self.treeView.yview)
@@ -273,8 +301,11 @@ class treeviewNotebook:
         self.treeView.heading('Comment', text='Comment')
         self.treeView.pack(fill=BOTH, expand=True)
         # self.treeView.grid(row=0, column=0, columnspan=4, rowspan=4)
-        self.treeView.tag_configure('oddrow', background="red")
+        self.treeView.tag_configure('oddrow', background=bgColor)
         self.treeView.tag_configure('evenrow', background="white")
+        self.treeView.tag_configure('selected', background=selectedColor)
+        self.treeView.tag_configure('running', background=runningColor)
+        self.treeView.tag_configure('selectedandrunning', background=selectAndRunningColor)
 
         self.treeView.bind("<Button-3>", rCM.showRightClickMenu)
         self.treeView.bind("<ButtonRelease-1>", selectRow)
@@ -383,6 +414,7 @@ class treeviewNotebook:
                     elif line[3]:
                         addRowWithParams(line[0], line[1], line[2], line[3], "")
                     step += 1
+        reorderRows()
 
     def frame_configure(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -445,26 +477,29 @@ class rightClickMenu():
         selectedRows = tN.treeView.selection()
         for row in selectedRows:
             tN.treeView.move(row, tN.treeView.parent(row), tN.treeView.index(row) - 1)
-        reorderRows(tN.treeView)
+        reorderRows()
+        tagSelection(selectedRows)
         exportMacro()
 
     def moveDown(self):
         selectedRows = tN.treeView.selection()
         for row in reversed(selectedRows):
             tN.treeView.move(row, tN.treeView.parent(row), tN.treeView.index(row) + 1)
-        reorderRows(tN.treeView)
+        reorderRows()
+        tagSelection(selectedRows)
         exportMacro()
 
     def removeRow(self):
         selectedRows = tN.treeView.selection()
         for row in selectedRows:
             tN.treeView.delete(row)
-        reorderRows(tN.treeView)
+        reorderRows()
         exportMacro()
 
     def selectAll(self):
         for row in tN.treeView.get_children():
             tN.treeView.selection_add(row)
+            tN.treeView.item(row, tag='selected')
 
     def closeTab(self):
         exportMacro()
@@ -534,8 +569,11 @@ class CreateToolTip(object):
             tw.destroy()
 
 
-bgColor = None  # 'CadetBlue1'   '#9ac6e3'
-fgColor = None  # '#759fba'
+bgColor = 'alice blue'  # 'CadetBlue1'
+fgColor = 'white'
+selectedColor = 'SteelBlue1'
+runningColor = 'green2'
+selectAndRunningColor = 'light sea green'
 bgButton = None  # '#e0f3ff'
 
 
@@ -557,7 +595,7 @@ def resizeNotebook(self):
     # attempt to scale grid items to resized window
     winWidth = root.grid_bbox(column=2, row=3, col2=7, row2=8)[2] - 18
     winWeight = 14
-
+    #
     tN.treeView.column('#0', width=int((winWidth / winWeight)))  # 1
     tN.treeView.column('X', width=int((winWidth / winWeight) * 1.5))  # 2
     tN.treeView.column('Y', width=int((winWidth / winWeight) * 1.5))  # 2
@@ -606,8 +644,9 @@ def threadStartClicking():
     tN.stopButton.config(state=NORMAL)
 
     try:
+        currTab = tN.getNotebook().tab(tN.getNotebook().select(), 'text')
         clickArray = list(csv.reader(open(FILE_PATH + r'\Macros' + '\\' + str(
-            tN.getNotebook().tab(tN.getNotebook().select(), 'text').replace(r'/', r'-').replace(r'\\', r'-').replace(
+            currTab.replace(r'/', r'-').replace(r'\\', r'-').replace(
                 r'*', r'-').replace(r'?', r'-').replace(r'[', r'-').replace(r']', r'-').replace(r'<', r'-').replace(
                 r'>', r'-').replace(r'|', r'-')) + '.csv', mode='r')))
 
@@ -620,12 +659,15 @@ def threadStartClicking():
         # using wait instead of sleep lets thread stop when Stop Clicking is clicked while waiting allow the thread to be quickly killed
         # because if Start Clicking is clicked before thread is killed this will overwrite saved thread and prevent setting event with intent to kill thread
         threadFlag = threading.Event()
+
+        tN.pauseEvent = threading.Event()
+        tN.pauseEvent.set()
         if tN.busyWait.get() == 1:
             tN.activeThread = threading.Thread(target=startClickingBusy,
-                                           args=(clickArray, threadFlag, int(loopEntry.get()), True))
+                                           args=(currTab, clickArray, int(loopEntry.get()), 0))
         else:
             tN.activeThread = threading.Thread(target=startClicking,
-                                           args=(clickArray, threadFlag, int(loopEntry.get()), True))
+                                           args=(currTab, clickArray, threadFlag, int(loopEntry.get()), 0))
         tN.activeThread.threadFlag = threadFlag
         tN.activeThread.start()
     except:
@@ -634,29 +676,56 @@ def threadStartClicking():
 
     # Emergency Exit key combo that will stop auto clicking in case mouse is moving to fast to click stop
     try:
-        sE = threading.Thread(target=monitorExit, args=())
-        sE.start()
+        exitThread = threading.Thread(target=monitorExit, args=())
+        exitThread.threadFlag = tN.activeThread.threadFlag
+        exitThread.start()
+        pauseThread = threading.Thread(target=monitorPause, args=())
+        pauseThread.threadFlag = tN.activeThread.threadFlag
+        pauseThread.start()
     except:
         # hmmmmm
-        print("Error: unable to start exit monitoring  thread")
+        print("Error: unable to start exit monitoring thread")
+
+PAUSE_COMBO = [{keyboard.Key.shift, keyboard.Key.ctrl_l, keyboard.Key.tab}]
+
+def on_press(key):
+    if any(key in x for x in PAUSE_COMBO):
+        if key not in tN.current:
+            tN.current.add(key)
+        if any(all(x in tN.current for x in z) for z in PAUSE_COMBO):
+            # print("COMBO PRESSED")
+            togglePause()
+
+def on_release(key):
+    if any(key in x for x in PAUSE_COMBO):
+        print(key)
+        tN.current.discard(key)
+
+
+
+def monitorPause():
+    with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+        tN.pauseListener = listener
+        listener.join()
 
 
 def monitorExit():
     def for_canonical(f):
-        return lambda k: f(l.canonical(k))
+        return lambda k: f(listener.canonical(k))
     # TODO make work even if other keys are pressed
     hotkey = keyboard.HotKey(
         keyboard.HotKey.parse('<ctrl>+<Shift>+`'),
         stopClicking)
 
     with keyboard.Listener(
-            on_press=for_canonical(hotkey.press)) as l:
-        l.join()
+            on_press=for_canonical(hotkey.press)) as listener:
+        tN.exitListener = listener
+        listener.join()
 
 
 # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
 # Intentionally uses busy wait for most accurate delays
-def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
+def startClickingBusy(macroName, clickArray, loopsParam, depth):
     # loop though param treeview, for param loops
     # needed so as to not mess with LoopsLeft from outer loop
     root.update()
@@ -681,6 +750,7 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
 
         intLoop = 0
         startTime = time.time()
+        tN.runningRows.append((macroName, intLoop))
 
         for row in clickArray:
             if loopsParam == 0 or loopsLeft.get() == 0: return
@@ -688,7 +758,7 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
 
             # When start from selected row setting is true then find highlighted row(s) and skip to from first selected row
             # Only for first loop and first macro, not for subsequent loops nor macros called by the starting macro
-            if firstLoop and mainLoop and startFromSelected == 1 and selectedRow > 0 and intLoop < selectedRow:
+            if firstLoop and depth == 0 and startFromSelected == 1 and selectedRow > 0 and intLoop < selectedRow:
                 continue
 
             # check row to see if its still holding keys
@@ -700,7 +770,7 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
 
                 # key hold and release is action
                 # print('PreRelease', (prevDelay / 1000), time.time() - clickTime)
-                while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                     pass
                 blnDelay = False
                 # print('PreReleasePostWait', (prevDelay / 1000), time.time() - clickTime)
@@ -731,7 +801,7 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
             elif len(tN.currPressed) > 0:
                 # print('PreRelease', str(pressed), (int(row[3]) / 1000), time.time() - clickTime)
                 # if blnDelay:
-                while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                     pass
                 # blnDelay = False
                 # print('PreReleaseWait', (int(row[3]) / 1000), time.time() - clickTime)
@@ -761,14 +831,17 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
 
             if loopsParam == 0 or loopsLeft.get() == 0: return
 
+            tN.runningRows[depth] = (macroName, intLoop)
+
             # Empty must be first because other references to first character of Action will error
             if row[2] == "":
                 # Nothing is just a pause
                 print("blank", (int(row[3]) / 1000), time.time() - clickTime)
                 if blnDelay:
-                    while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                    while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                         pass
                 clickTime = time.time()
+                reorderRows()
             # Moved _ hold action as close top as possible as it's accuracy is most important
             # Action is starts with an underscore (_), hold the key for the given amount of time
             elif row[2][0] == '_' and len(row[2]) > 1:
@@ -777,7 +850,7 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
 
                 # wait prior row amount before pressing new keys
                 if blnDelay:
-                    while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                    while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                         pass
 
                 for key in toPress:
@@ -820,55 +893,62 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
                                 tN.currPressed.append(key)
                         print("Press " + str(key) + " at " + str(time.time() - startTime))
                 clickTime = time.time()
+                reorderRows()
 
             elif row[2] in ['M1', 'M2', 'M3']:
                 if int(row[0]) != 0 or int(row[1]) != 0:
                     # mouse click is action
                     if row[2] == 'M1':
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                            while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                                 pass
                         pyautogui.click(int(row[0]), int(row[1]), button='left')
                         clickTime = time.time()
+                        reorderRows()
 
                     elif row[2] == 'M3':
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                            while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                                 pass
                         pyautogui.moveTo(int(row[0]), int(row[1]))
                         pyautogui.mouseDown(button='right')
                         time.sleep(.1) # TODO remove forced delay?
                         pyautogui.mouseUp(button='right')
                         clickTime = time.time()
+                        reorderRows()
                     else:
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                            while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                                 pass
                         pyautogui.click(int(row[0]), int(row[1]), button='middle')
                         clickTime = time.time()
+                        reorderRows()
                     print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
                 else:
                     # mouse click is action without position, do not move, just click
                     if row[2] == 'M1':
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                            while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                                 pass
                         pyautogui.click(button='left')
                         clickTime = time.time()
+                        reorderRows()
                     elif row[2] == 'M3':
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                            while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                                 pass
                         pyautogui.mouseDown(button='right')
                         time.sleep(.1)
                         pyautogui.mouseUp(button='right')
                         clickTime = time.time()
+                        reorderRows()
                     else:
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                            while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                                 pass
                         pyautogui.click(button='middle')
                         clickTime = time.time()
+                        reorderRows()
                     print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
 
             # Action is #string, find image in Images folder with string name
@@ -890,10 +970,11 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
                     if position:
                         # print("Found image at: ", position[0], ' : ', position[1])
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                            while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                                 pass
                         pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                         clickTime = time.time()
+                        reorderRows()
                     else:
                         break
                 else:
@@ -910,10 +991,11 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
                     if position:
                         # print("Found image at: ", position[0], ' : ', position[1])
                         if blnDelay:
-                            while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                            while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                                 pass
                         pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                         clickTime = time.time()
+                        reorderRows()
                     else:
                         break
 
@@ -925,28 +1007,31 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
                         open(FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv',
                              mode='r')))
                     print("file: ", FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv')
-                    startClickingBusy(arrayParam, threadFlag, int(row[3]), False)
+                    startClickingBusy(row[2][1:len(row[2])], arrayParam, int(row[3]), depth + 1)
             else:
                 # print(row[2])
                 # key press is action
                 if row[2] != 'space':
                     if blnDelay:
-                        while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                        while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                             pass
                     pyautogui.press(row[2])
                     clickTime = time.time()
+                    reorderRows()
                 elif row[2] == 'space':
                     if blnDelay:
-                        while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                        while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                             pass
                     pyautogui.press(' ')
                     clickTime = time.time()
+                    reorderRows()
                 if row[2] == 'tab':
                     if blnDelay:
-                        while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+                        while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
                             pass
                     pyautogui.press('\t')
                     clickTime = time.time()
+                    reorderRows()
                 else:
                     clickTime = time.time()
                 print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
@@ -958,10 +1043,12 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
 
         # decrement loop count param, also decrement main loop counter if main loop
         if loopsParam > 0: loopsParam = loopsParam - 1
-        if mainLoop and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
+        if depth == 0 and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
         firstLoop = False
+        tN.runningRows.remove((macroName, intLoop))
+
     # if blnDelay:
-    while time.time() < clickTime + (int(prevDelay) / 1000) and not threadFlag.is_set():
+    while time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait():
         pass
     # Release all keys that are pressed so as to not leave pressed
     # Necessary to be outside of loop because last row in macro will expect next row to release right prior to next press.
@@ -985,7 +1072,10 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
         print("Release3 " + str(pressedKey) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
         # print("Release " + str(pressedKey) + " after " + str(time.time() - clickTime))
 
+    reorderRows()
     root.update()
+    tN.exitListener.stop()
+    tN.pauseListener.stop()
     if loopsLeft.get() == 0:
         tN.startButton.config(state=NORMAL)
         tN.stopButton.config(state=DISABLED)
@@ -993,7 +1083,7 @@ def startClickingBusy(clickArray, threadFlag, loopsParam, mainLoop):
 
 # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
 # Intentionally uses busy wait for most accurate delays
-def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
+def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
     root.update()
     print("startClicking")
 
@@ -1016,6 +1106,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
 
         intLoop = 0
         startTime = time.time()
+        tN.runningRows.append((macroName, intLoop))
 
         for row in clickArray:
             if loopsParam == 0 or loopsLeft.get() == 0: return
@@ -1023,7 +1114,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
 
             # When start from selected row setting is true then find highlighted row(s) and skip to from first selected row
             # Only for first loop and first macro, not for subsequent loops nor macros called by the starting macro
-            if firstLoop and mainLoop and startFromSelected == 1 and selectedRow > 0 and intLoop < selectedRow:
+            if firstLoop and depth == 0 and startFromSelected == 1 and selectedRow > 0 and intLoop < selectedRow:
                 continue
 
             # check row to see if its still holding keys
@@ -1035,7 +1126,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
 
                 # key hold and release is action
                 # print('PreRelease', (prevDelay / 1000), time.time() - clickTime)
-                while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                     return
                 blnDelay = False
                 # print('PreReleasePostWait', (prevDelay / 1000), time.time() - clickTime)
@@ -1066,7 +1157,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
             elif len(tN.currPressed) > 0:
                 # print('PreRelease', str(pressed), (int(row[3]) / 1000), time.time() - clickTime)
                 # if blnDelay:
-                while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                     return
                 # blnDelay = False
                 # print('PreReleaseWait', (int(row[3]) / 1000), time.time() - clickTime)
@@ -1096,14 +1187,17 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
 
             if loopsParam == 0 or loopsLeft.get() == 0: return
 
+            tN.runningRows[depth] = (macroName, intLoop)
+
             # Empty must be first because other references to first character of Action will error
             if row[2] == "":
                 # Nothing is just a pause
                 print("blank", (int(row[3]) / 1000), time.time() - clickTime)
                 if blnDelay:
-                    while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                    while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                         return
                 clickTime = time.time()
+                reorderRows()
             # Moved _ hold action as close top as possible as it's accuracy is most important
             # Action is starts with an underscore (_), hold the key for the given amount of time
             elif row[2][0] == '_' and len(row[2]) > 1:
@@ -1112,7 +1206,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
 
                 # wait prior row amount before pressing new keys
                 if blnDelay:
-                    while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                    while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                         return
 
                 for key in toPress:
@@ -1154,6 +1248,7 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                                 pyautogui.keyDown(key)
                                 tN.currPressed.append(key)
                         print("Press " + str(key) + " at " + str(time.time() - clickTime))
+                reorderRows()
                 clickTime = time.time()
 
             elif row[2] in ['M1', 'M2', 'M3']:
@@ -1161,15 +1256,18 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                     # mouse click is action
                     if row[2] == 'M1':
                         if blnDelay:
-                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                                 return
+                        tN.pauseEvent.wait()
                         pyautogui.click(int(row[0]), int(row[1]), button='left')
                         clickTime = time.time()
+                        reorderRows()
 
                     elif row[2] == 'M3':
                         if blnDelay:
-                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                                 return
+                        reorderRows()
                         pyautogui.moveTo(int(row[0]), int(row[1]))
                         pyautogui.mouseDown(button='right')
                         time.sleep(.1)  # TODO remove forced delay?
@@ -1177,33 +1275,37 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                         clickTime = time.time()
                     else:
                         if blnDelay:
-                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                                 return
                         pyautogui.click(int(row[0]), int(row[1]), button='middle')
                         clickTime = time.time()
+                        reorderRows()
                     print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
                 else:
                     # mouse click is action without position, do not move, just click
                     if row[2] == 'M1':
                         if blnDelay:
-                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                                 return
                         pyautogui.click(button='left')
                         clickTime = time.time()
+                        reorderRows()
                     elif row[2] == 'M3':
                         if blnDelay:
-                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                                 return
                         pyautogui.mouseDown(button='right')
                         time.sleep(.1)
                         pyautogui.mouseUp(button='right')
                         clickTime = time.time()
+                        reorderRows()
                     else:
                         if blnDelay:
-                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                                 return
                         pyautogui.click(button='middle')
                         clickTime = time.time()
+                        reorderRows()
                     print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
 
             # Action is #string, find image in Images folder with string name
@@ -1225,10 +1327,11 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                     if position:
                         # print("Found image at: ", position[0], ' : ', position[1])
                         if blnDelay:
-                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                                 return
                         pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                         clickTime = time.time()
+                        reorderRows()
                     else:
                         break
                 else:
@@ -1245,10 +1348,11 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                     if position:
                         # print("Found image at: ", position[0], ' : ', position[1])
                         if blnDelay:
-                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                            while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                                 return
                         pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                         clickTime = time.time()
+                        reorderRows()
                     else:
                         break
 
@@ -1260,28 +1364,31 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
                         open(FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv',
                              mode='r')))
                     print("file: ", FILE_PATH + r'\Macros' + '\\' + row[2][1:len(row[2])] + '.csv')
-                    startClicking(arrayParam, threadFlag, int(row[3]), False)
+                    startClicking(row[2][1:len(row[2])], arrayParam, threadFlag, int(row[3]), depth + 1)
             else:
                 # print(row[2])
                 # key press is action
                 if row[2] != 'space':
                     if blnDelay:
-                        while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                        while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                             return
                     pyautogui.press(row[2])
                     clickTime = time.time()
+                    reorderRows()
                 elif row[2] == 'space':
                     if blnDelay:
-                        while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                        while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                             return
                     pyautogui.press(' ')
                     clickTime = time.time()
+                    reorderRows()
                 if row[2] == 'tab':
                     if blnDelay:
-                        while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
+                        while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait():
                             return
                     pyautogui.press('\t')
                     clickTime = time.time()
+                    reorderRows()
                 else:
                     clickTime = time.time()
                 print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
@@ -1293,8 +1400,10 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
 
         # decrement loop count param, also decrement main loop counter if main loop
         if loopsParam > 0: loopsParam = loopsParam - 1
-        if mainLoop and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
+        if depth == 0 and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
+        tN.runningRows.remove((macroName, intLoop))
         firstLoop = False
+
     # if blnDelay:
     while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime):
         return
@@ -1320,19 +1429,29 @@ def startClicking(clickArray, threadFlag, loopsParam, mainLoop):
         print("Release3 " + str(pressedKey) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
         # print("Release " + str(pressedKey) + " after " + str(time.time() - clickTime))
 
+    reorderRows()
     root.update()
+    tN.exitListener.stop()
+    tN.pauseListener.stop()
     if loopsLeft.get() == 0:
         tN.startButton.config(state=NORMAL)
         tN.stopButton.config(state=DISABLED)
 
 
 def stopClicking():
+    print("Stop")
     # Reset clicker back to off state
     if tN.activeThread:
         tN.activeThread.threadFlag.set()
-        # tN.activeThread.join()/
+
+    try:
+        tN.exitListener.stop()
+        tN.pauseListener.stop()
+    except:
+        pass
 
     loopsLeft.set(0)
+    tN.pauseFlag = False
 
     # Release all keys that are pressed so as to not leave pressed
     for pressedKey in tN.currPressed:
@@ -1354,6 +1473,19 @@ def stopClicking():
 
     tN.startButton.config(state=NORMAL)
     tN.stopButton.config(state=DISABLED)
+
+
+def togglePause():
+    tN.pauseFlag = not tN.pauseFlag
+    print("Pause is ", tN.pauseFlag)
+
+    if tN.pauseEvent.is_set():
+        tN.pauseEvent.clear()
+    else:
+        tN.pauseEvent.set()
+
+    # sP = threading.Thread(target=monitorPause, args=())
+    # sP.start()
 
 
 def getOrigin():
@@ -1411,6 +1543,10 @@ def selectRow(event):
     global previouslySelectedRow
 
     selectedRow = tN.treeView.focus()
+    print(selectedRow)
+    if previouslySelectedRow != selectedRow:
+        reorderRows()
+    tagSelection(tN.treeView.selection())
     selectedValues = tN.treeView.item(selectedRow, 'values')
 
     if len(selectedValues) > 0 and (previouslySelectedTab != tN.getNotebook().index(
@@ -1429,17 +1565,29 @@ def selectRow(event):
         root.update()
 
 
-def reorderRows(treeView):
-    rows = treeView.get_children()
+def reorderRows():
+    rows = tN.treeView.get_children()
     i = 1
     for row in rows:
         if i % 2 == 0:
-            treeView.item(row, text=i, tags='oddrow')
-            treeView.set(row, "Step", i)
+            tN.treeView.item(row, text=i, tags='oddrow')
+            tN.treeView.set(row, "Step", i)
         else:
-            treeView.item(row, text=i, tags='evenrow')
-            treeView.set(row, "Step", i)
+            tN.treeView.item(row, text=i, tags='evenrow')
+            tN.treeView.set(row, "Step", i)
         i += 1
+    for tuple in tN.runningRows:
+        if tuple[0] == tN.notebook.tab(tN.notebook.select(), "text"):
+            tN.treeView.item(rows[tuple[1] - 1], tags='running')
+    tagSelection(tN.treeView.selection())
+
+
+def tagSelection(selection):
+    for row in selection:
+        if not tN.treeView.item(row)['tags'][0] == 'running':
+            tN.treeView.item(row, tag='selected')
+        else:
+            tN.treeView.item(row, tag='selectedandrunning')
 
 
 def importMacro():
@@ -1467,16 +1615,13 @@ def importMacro():
 
 
 def exportMacro():
-    print('export')
     # save as csv file with name of file as macro name
     savePath = FILE_PATH + r'\Macros'
     filename = str(
-        tN.getNotebook().tab(tN.getNotebook().select(), 'text').replace(r'/', r'-').replace(r'\\', r'-').replace(r'*',
-                                                                                                                 r'-').replace(
-            r'?', r'-').replace(r'[', r'-').replace(r']', r'-').replace(r'<', r'-').replace(r'>', r'-').replace(r'|',
-                                                                                                                r'-'))
+        tN.getNotebook().tab(tN.getNotebook().select(), 'text').replace(r'/', r'-').replace(r'\\', r'-').replace(r'*', r'-').replace(
+            r'?', r'-').replace(r'[', r'-').replace(r']', r'-').replace(r'<', r'-').replace(r'>', r'-').replace(r'|', r'-'))
 
-    print('export; ', filename)
+    # print('export; ', filename)
     with open(os.path.join(savePath, str(filename + '.csv')), 'w', newline='') as newMacro:
         csvWriter = csv.writer(newMacro, delimiter=',')
         children = tN.treeView.get_children()
@@ -1513,7 +1658,7 @@ def actionPopulate(event):
     # !, #, and _ is special character that allows typing of action instead of instating setting action to each key press
     if str(actionEntry.get())[0:1] != '!' and str(actionEntry.get())[0:1] != '#' and str(actionEntry.get())[0:1] != '_':
         # need to use different properties for getting key press for letters vs whitespace/ctrl/shift/alt
-        # != ?? to exclude mouse button as their char and keysym are not empty but are equal to ??
+        # != ?? to exclude mouse button as their char and keysym are not empty but are edqual to ??
         if event.keysym == 'Escape' and event.char != '??':
             # special case for Escape because it has a char and might otherwise act like a letter but won't fill in the
             # box with 'Escape'
@@ -1619,16 +1764,21 @@ def showHelp():
             tN.helpWindow.wm_state("normal")
     else:
         tN.helpWindow = Toplevel(root)
+        tN.helpWindow.configure(background=bgColor)
         tN.helpWindow.attributes("-topmost", True)
         tN.helpWindow.resizable(height=None, width=None)
         tN.helpWindow.wm_title("Sticky's Autoclicker Help")
         tN.helpWindow.protocol("WM_DELETE_WINDOW", closeHelp)
+        tN.settingsWindow.focus_force()
 
-        helpLabel = Label(tN.helpWindow, text=USABILITY_NOTES, justify=LEFT)
-        helpLabel.grid(row=0, column=0)
+        titleLabel = Label(tN.helpWindow, text="Usability Notes", font=("Arial bold", 14), justify=CENTER, background=bgColor)
+        titleLabel.grid(row=0, column=0)
 
-        closeButton = ttk.Button(tN.helpWindow, text="Close", command=closeHelp)
-        closeButton.grid(row=1, column=0)
+        helpLabel = Label(tN.helpWindow, text=USABILITY_NOTES, justify=LEFT, background=bgColor)
+        helpLabel.grid(row=1, column=0, padx=10)
+
+        closeButton = ttk.Button(tN.helpWindow, text=" Close ", command=closeHelp)
+        closeButton.grid(row=2, column=0, pady=10, ipady=2)
 
 
 def showSettings():
@@ -1640,35 +1790,39 @@ def showSettings():
             tN.settingsWindow.wm_state("normal")
     else:
         tN.settingsWindow = Toplevel(root)
+        tN.settingsWindow.configure(background=bgColor)
         tN.settingsWindow.attributes("-topmost", True)
         tN.settingsWindow.resizable(height=None, width=None)
         tN.settingsWindow.wm_title("Sticky's Autoclicker Settings")
         tN.settingsWindow.protocol("WM_DELETE_WINDOW", closeSettings)
+        tN.settingsWindow.focus_force()
 
         # Rows 0 and 1
-        busyLabel = Label(tN.settingsWindow, text="Use Busy Wait", borderwidth=2)
-        busyLabel.grid(row=0, column=0, padx=10)
-        busyButton = Checkbutton(tN.settingsWindow, variable=tN.busyWait, onvalue=1, offvalue=0, command=toggleBusy, borderwidth=2)
-        busyButton.grid(row=1, column=0, padx=10, pady=10)
+        blankLabel = Label(tN.settingsWindow)
+        blankLabel.grid(row=0, column=0)
+        busyLabel = Label(tN.settingsWindow, text="Use Busy Wait", borderwidth=2, background=bgColor)
+        busyLabel.grid(row=1, column=0, padx=10)
+        busyButton = Checkbutton(tN.settingsWindow, variable=tN.busyWait, onvalue=1, offvalue=0, command=toggleBusy, borderwidth=2, background=bgColor)
+        busyButton.grid(row=2, column=0, padx=10, pady=10)
 
-        windowLabel = Label(tN.settingsWindow, text="Application Selector", borderwidth=2)
-        windowLabel.grid(row=0, column=1, sticky='s', padx=10)
+        windowLabel = Label(tN.settingsWindow, text="Application Selector", borderwidth=2, background=bgColor)
+        windowLabel.grid(row=1, column=1, sticky='s', padx=10)
         windowButton = Button(tN.settingsWindow, text="Find App", bg=bgButton, command=windowFinder, borderwidth=2)
-        windowButton.grid(row=1, column=1, sticky='n', padx=10, pady=10)
+        windowButton.grid(row=2, column=1, sticky='n', padx=10, pady=10)
 
-        hiddenLabel = Label(tN.settingsWindow, text="Use hidden mode", borderwidth=2)
-        hiddenLabel.grid(row=0, column=2, sticky='s', padx=10)
-        hiddenButton = Checkbutton(tN.settingsWindow, variable=tN.hiddenMode, onvalue=1, offvalue=0, command=toggleHidden)
-        hiddenButton.grid(row=1, column=2, sticky='n', padx=10, pady=10)
+        hiddenLabel = Label(tN.settingsWindow, text="Use hidden mode", borderwidth=2, background=bgColor)
+        hiddenLabel.grid(row=1, column=2, sticky='s', padx=10)
+        hiddenButton = Checkbutton(tN.settingsWindow, variable=tN.hiddenMode, onvalue=1, offvalue=0, command=toggleHidden, background=bgColor)
+        hiddenButton.grid(row=2, column=2, sticky='n', padx=10, pady=10)
 
         # Rows 3 and 4
-        startFromSelectedLabel = Label(tN.settingsWindow, text="Start From Selected Row", borderwidth=2)
-        startFromSelectedLabel.grid(row=3, column=0, padx=10)
-        startFromSelectedButton = Checkbutton(tN.settingsWindow, variable=tN.startFromSelected, onvalue=1, offvalue=0, command=toggleStartFromSelected, borderwidth=2)
-        startFromSelectedButton.grid(row=4, column=0, padx=10, pady=10)
+        startFromSelectedLabel = Label(tN.settingsWindow, text="Start From Selected Row", borderwidth=2, background=bgColor)
+        startFromSelectedLabel.grid(row=4, column=0, padx=10)
+        startFromSelectedButton = Checkbutton(tN.settingsWindow, variable=tN.startFromSelected, onvalue=1, offvalue=0, command=toggleStartFromSelected, borderwidth=2, background=bgColor)
+        startFromSelectedButton.grid(row=5, column=0, padx=10, pady=10)
 
-        closeButton = ttk.Button(tN.settingsWindow, text="Close", command=closeSettings)
-        closeButton.grid(row=5, column=1, padx=10, pady=10)
+        closeButton = ttk.Button(tN.settingsWindow, text=" Close ", command=closeSettings)
+        closeButton.grid(row=6, column=1, pady=10, ipady=2)
 0
 
 def closeSettings():
@@ -1802,7 +1956,7 @@ class Recorder:
         tN.startButton.config(state=DISABLED)
         tN.recordButton.configure(bg='red')
 
-        # create thread to monitor for exit keycombo
+        # create thread to monitor for exit and pause keycombo
         sE = threading.Thread(target=monitorExit, args=())
         sE.start()
 
@@ -1943,7 +2097,7 @@ class Recorder:
         overwriteRow(row, x, y, key, delay, "")
 
 
-tN = treeviewNotebook()
+tN = treeviewNotebook("park", "light")
 
 # bind after instantiation because resizing occurs while building window before all elements are even created
 root.bind("<Configure>", resizeNotebook)
