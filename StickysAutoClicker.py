@@ -52,7 +52,7 @@ The imports used are for:
 - tkinter.filedialog for importing macroscd 
 - pynput for listening to keyboard for emergency exit combo Ctrl + Shift + 1
 
-build with "pyinstaller --onefile --noconsole --icon=StickyHeadIcon.ico StickysAutoClicker.py"
+build with "pyinstaller --onefile --noconsole --icon=StickyHeadIconAll.ico StickysAutoClicker.py"
 """
 
 USABILITY_NOTES = (" - Selecting any row of a macro will auto-populate the X and Y positions, delay, action and comment fields with the values of that row, overwriting anything previously entered.\n"
@@ -1057,7 +1057,17 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
                     pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                     clickTime = time.time()
                 else:
-                    tN.runningRows.remove((macroName, intRow))
+                    try:
+                        # Finding image failed so loop restarts
+                        tN.runningRows[depth] = (macroName, 1)
+                        if intRow % 2 == 0:
+                            tN.treeView.item(tN.treeView.get_children()[intRow - 1], tags='oddrow')
+                        else:
+                            tN.treeView.item(tN.treeView.get_children()[intRow - 1], tags='evenrow')
+                    except:
+                        pass
+                    if macroName == tN.currTab:
+                        updateRunningRow()
                     break
 
             # Action is !string, run macro with string name for Delay amount of times
@@ -1192,7 +1202,7 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
         selectedRow = tN.treeView.item(selection[0]).get("values")[0]
     else:
         selectedRow = 0
-        tN.runningRows.append((macroName, 1))
+    tN.runningRows.append((macroName, 1))
 
     # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
     while loopsParam > 0 and loopsLeft.get() > 0 or tN.activeThread.threadFlag.is_set():
@@ -1488,11 +1498,16 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                     clickTime = time.time()
                 else:
                     try:
-                        tN.runningRows.remove((macroName, intRow))
+                        # Finding image failed so loop restarts
+                        tN.runningRows[depth] = (macroName, 1)
+                        if intRow % 2 == 0:
+                            tN.treeView.item(tN.treeView.get_children()[intRow - 1], tags='oddrow')
+                        else:
+                            tN.treeView.item(tN.treeView.get_children()[intRow - 1], tags='evenrow')
                     except:
                         pass
                     if macroName == tN.currTab:
-                        reorderRows()
+                        updateRunningRow()
                     break
 
             # Action is !string, run macro with string name for Delay amount of times
