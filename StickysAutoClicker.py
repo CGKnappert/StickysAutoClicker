@@ -281,6 +281,7 @@ class treeviewNotebook:
         self.canvas.create_window((0, 0), window=self.frame, anchor="nw", tags="frame")
 
         self.frame.bind("<Configure>", self.frame_configure)
+        self.frame.bind("<Button-1>", self.unselectTab)
 
         treeviewStyle = ttk.Style()
         treeviewStyle.theme_create("Custom.TNotebook")
@@ -294,7 +295,7 @@ class treeviewNotebook:
 
         self.notebook = ttk.Notebook(self.frame, style="Custom.TNotebook", takefocus=False)
         # self.notebook.enable_traversal()
-        self.tabFrame = tk.Frame(self.notebook, bg=bgColor)
+        self.tabFrame = tk.Frame(self.notebook, bg=bgColor, takefocus=False)
         self.notebook.grid(row=2, column=2, columnspan=8, rowspan=1, sticky="nsew")
         self.notebook.bind('<<NotebookTabChanged>>', self.tabRefresh)
 
@@ -388,7 +389,7 @@ class treeviewNotebook:
                 openTabs = config.get("Tabs", "opentabs").split("|")
                 if len(openTabs) == 1 and openTabs[0] =='':
                     # config file is blank, open macro1 like old times
-                    self.notebook.add(self.tabFrame, text='macro1')
+                    self.notebook.add(self.tabFrame, text='macro1', takefocus=False)
                     self.treeTabs.append('macro1')
                     config['Tabs'] = {'opentabs': str('|'.join(self.treeTabs))}
                     updateConfig = True
@@ -397,7 +398,7 @@ class treeviewNotebook:
                         self.addTab(tab)
             else:
                 # config file doesnt exist, open macro1 like old times
-                self.notebook.add(self.tabFrame, text='macro1')
+                self.notebook.add(self.tabFrame, text='macro1', takefocus=False)
                 self.treeTabs.append('macro1')
                 config['Tabs'] = {'opentabs': str('|'.join(self.treeTabs))}
                 updateConfig = True
@@ -409,7 +410,7 @@ class treeviewNotebook:
             print(config.sections())
             print(os.path.join(FILE_PATH, r'config.ini'))
         else:
-            self.notebook.add(self.tabFrame, text='macro1')
+            self.notebook.add(self.tabFrame, text='macro1', takefocus=False)
             self.treeTabs.append('macro1')
 
             config = cp.ConfigParser()
@@ -418,7 +419,6 @@ class treeviewNotebook:
 
             with open(os.path.join(FILE_PATH, r'config.ini'), 'w') as configfile:
                 config.write(configfile)
-
 
     def tabRefresh(self, event):
         print('tabRefresh')
@@ -446,14 +446,16 @@ class treeviewNotebook:
                         addRowWithParams(line[0], line[1], line[2], line[3], "")
                     step += 1
         reorderRows()
-        updateRunningRow()
-        tagSelection()
+        tN.xPosLabel.focus()
 
     def frame_configure(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
+    def unselectTab(self, event):
+        tN.xPosLabel.focus()
+
     def addTab(self, name):
-        self.tabFrame = ttk.Frame(self.notebook)
+        self.tabFrame = ttk.Frame(self.notebook, takefocus=False)
         self.tabFrame.config(height=320, width=440)
 
         self.treeTabs.append(name)
@@ -468,7 +470,7 @@ class treeviewNotebook:
         except:
             pass
 
-        self.notebook.add(self.tabFrame, text=name, underline = 0)
+        self.notebook.add(self.tabFrame, text=name)
         self.notebook.select(self.tabFrame)
 
     def getNotebook(self):
@@ -519,7 +521,6 @@ class rightClickMenu():
         for row in reversed(selectedRows):
             tN.treeView.move(row, tN.treeView.parent(row), tN.treeView.index(row) + 1)
         reorderRows()
-        tagSelection()
         exportMacro()
 
     def removeRow(self):
@@ -672,40 +673,37 @@ def threadStartClicking():
     tN.startButton.config(state=DISABLED)
     tN.stopButton.config(state=NORMAL)
 
+    # for thread in threading.enumerate():
+    #     print(thread.name)
 
-    for thread in threading.enumerate():
-        print(thread.name)
+    try:
+        currTab = tN.getNotebook().tab(tN.getNotebook().select(), 'text')
+        clickArray = list(csv.reader(open(FILE_PATH + r'\Macros' + '\\' + str(
+            currTab.replace(r'/', r'-').replace(r'\\', r'-').replace(
+                r'*', r'-').replace(r'?', r'-').replace(r'[', r'-').replace(r']', r'-').replace(r'<', r'-').replace(
+                r'>', r'-').replace(r'|', r'-')) + '.csv', mode='r')))
 
-    # try:
-    currTab = tN.getNotebook().tab(tN.getNotebook().select(), 'text')
-    clickArray = list(csv.reader(open(FILE_PATH + r'\Macros' + '\\' + str(
-        currTab.replace(r'/', r'-').replace(r'\\', r'-').replace(
-            r'*', r'-').replace(r'?', r'-').replace(r'[', r'-').replace(r']', r'-').replace(r'<', r'-').replace(
-            r'>', r'-').replace(r'|', r'-')) + '.csv', mode='r')))
+        # set loops counter
+        loops.set(int(loopEntry.get()))
+        loopsLeft.set(loopEntry.get())
+        root.update()
 
-    # set loops counter
-    loops.set(int(loopEntry.get()))
-    loopsLeft.set(loopEntry.get())
-    root.update()
+        # create event and give as attribute to thread object, this can be referenced in loop and prevent sleeping of thread
+        # using wait instead of sleep lets thread stop when Stop Clicking is clicked while waiting allow the thread to be quickly killed
+        # because if Start Clicking is clicked before thread is killed this will overwrite saved thread and prevent setting event with intent to kill thread
+        threadFlag = threading.Event()
 
-    # create event and give as attribute to thread object, this can be referenced in loop and prevent sleeping of thread
-    # using wait instead of sleep lets thread stop when Stop Clicking is clicked while waiting allow the thread to be quickly killed
-    # because if Start Clicking is clicked before thread is killed this will overwrite saved thread and prevent setting event with intent to kill thread
-    threadFlag = threading.Event()
-
-    tN.pauseEvent = threading.Event()
-    tN.pauseEvent.set()
-    if tN.busyWait.get() == 1:
-        tN.activeThread = threading.Thread(target=startClickingBusy,
-                                       args=(currTab, clickArray, int(loopEntry.get()), 0))
-    else:
-        tN.activeThread = threading.Thread(target=startClicking,
-                                       args=(currTab, clickArray, threadFlag, int(loopEntry.get()), 0))
-    tN.activeThread.threadFlag = threadFlag
-    tN.activeThread.start()
-    # except:
-    #     # hmmmm
-    #     print("Error: unable to start clicking thread")
+        tN.pauseEvent = threading.Event()
+        tN.pauseEvent.set()
+        if tN.busyWait.get() == 1:
+            tN.activeThread = threading.Thread(target=startClickingBusy, args=(currTab, clickArray, int(loopEntry.get()), 0))
+        else:
+            tN.activeThread = threading.Thread(target=startClicking, args=(currTab, clickArray, threadFlag, int(loopEntry.get()), 0))
+        tN.activeThread.threadFlag = threadFlag
+        tN.activeThread.start()
+    except:
+        # hmmmm
+        print("Error: unable to start clicking thread")
 
     # Emergency Exit key combo that will stop auto clicking in case mouse is moving to fast to click stop
     try:
@@ -723,9 +721,8 @@ ALL_COMBO = ['Key.ctrl_l', 'Key.shift', 'Key.tab', '\'`\'', '\'~\'', '<192>']
 
 
 def on_press(key):
-    print("Press: ", key)
     if str(key) in ALL_COMBO:
-        print("Press: ", key)
+        # print("Press: ", key)
         if str(key) not in tN.monitorKeysPressed:
             tN.monitorKeysPressed.add(str(key))
         if all(x in tN.monitorKeysPressed for x in PAUSE_COMBO):
@@ -750,19 +747,6 @@ def monitorKeys():
         listener.join()
 
 
-# def monitorExit():
-#     def for_canonical(f):
-#         return lambda k: f(l.canonical(k))
-#
-#     hotkey = keyboard.HotKey(
-#         keyboard.HotKey.parse('<ctrl>+<Shift>+`'),
-#         stopClicking)
-#
-#     with keyboard.Listener(
-#             on_press=for_canonical(hotkey.press)) as l:
-#         l.join()
-
-
 # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
 # Intentionally uses busy wait for most accurate delays
 def startClickingBusy(macroName, clickArray, loopsParam, depth):
@@ -781,14 +765,14 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
         selectedRow = tN.treeView.item(selection[0]).get("values")[0]
     else:
         selectedRow = 0
+    tN.runningRows.append((macroName, 1))
 
     # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
-    while loopsParam > 0 and loopsLeft.get() > 0:
+    while (loopsParam > 0 and loopsLeft.get() > 0) or not tN.activeThread.threadFlag.is_set():
         print("New loop")
 
         intRow = 0
         startTime = time.time()
-        tN.runningRows.append((macroName, intRow))
 
         for row in clickArray:
             if loopsParam == 0 or loopsLeft.get() == 0: return
@@ -798,15 +782,6 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
             # Only for first loop and first macro, not for subsequent loops nor macros called by the starting macro
             if firstLoop and depth == 0 and startFromSelected == 1 and selectedRow > 0 and intRow < selectedRow:
                 continue
-
-            if intRow == 1 and firstLoop:
-                tN.runningRows.append((macroName, intRow))
-                updateRunningRow()
-            else:
-                try:
-                    tN.runningRows[depth] = (macroName, intRow)
-                except:
-                    pass
 
             # check row to see if its still holding keys
             if len(tN.currPressed) > 0 and (row[2] == "" or row[2][0] == '_'):
@@ -842,17 +817,13 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
                         except:
                             pass
                         # print("Release " + str(key) + " after " + str(time.time() - clickTime))
-                        print("Release " + str(key) + " after total " + str(time.time() - startTime))
-                        print("Release1 " + str(key) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
-                # if this row is also a press then start timer as hols is continuing
-                # clickTime = time.time()
+                        # print("Release " + str(key) + " after total " + str(time.time() - startTime))
+                        # print("Release1 " + str(key) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
             elif len(tN.currPressed) > 0:
                 # print('PreRelease', str(pressed), (int(row[3]) / 1000), time.time() - clickTime)
-                # if blnDelay:
                 while (time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait()) and not tN.activeThread.threadFlag.is_set():
                     pass
 
-                # blnDelay = False
                 # print('PreReleaseWait', (int(row[3]) / 1000), time.time() - clickTime)
                 # Release all keys as next step is not pressing
                 for key in tN.currPressed:
@@ -872,28 +843,27 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
                         tN.currPressed.remove(key)
                     except:
                         pass
-                        # print("Release " + str(key) + " after " + str(time.time() - clickTime))
-                    print("Release " + str(key) + " after total " + str(time.time() - startTime))
-                    print("Release2 " + str(key) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
+                    # print("Release " + str(key) + " after " + str(time.time() - clickTime))
+                    # print("Release " + str(key) + " after total " + str(time.time() - startTime))
+                    # print("Release2 " + str(key) + " after " + str(int(prevDelay) / 1000) + " with time diff: " + str(time.time() - clickTime - int(prevDelay) / 1000))
                 # if this row is not a press then wait to start timer until next click
                 clickTime = time.time()
 
             if loopsParam == 0 or loopsLeft.get() == 0: break
 
-            try:
-                tN.runningRows[depth] = (macroName, intRow)
-            except:
-                pass
-
             # Empty must be first because other references to first character of Action will error
             if row[2] == "":
                 # Nothing is just a pause
-                print("blank", (int(row[3]) / 1000), time.time() - clickTime)
+                # print("blank", (int(row[3]) / 1000), time.time() - clickTime)
                 if blnDelay:
                     while (time.time() < clickTime + (int(prevDelay) / 1000) or not tN.pauseEvent.wait()) and not tN.activeThread.threadFlag.is_set():
                         pass
                 if loopsLeft.get() == 0: return
                 clickTime = time.time()
+                try:
+                    tN.runningRows[depth] = (macroName, intRow)
+                except:
+                    pass
                 if macroName == tN.currTab:
                     updateRunningRow()
             # Moved _ hold action as close top as possible as it's accuracy is most important
@@ -946,8 +916,12 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
                             else:
                                 pyautogui.keyDown(key)
                                 tN.currPressed.append(key)
-                        print("Press " + str(key) + " at " + str(time.time() - startTime))
+                        print("Press " + str(key) + " at " + str(time.time() - clickTime))
                 clickTime = time.time()
+                try:
+                    tN.runningRows[depth] = (macroName, intRow)
+                except:
+                    pass
                 if macroName == tN.currTab:
                     updateRunningRow()
 
@@ -962,6 +936,10 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
 
                         pyautogui.click(int(row[0]), int(row[1]), button='left')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
 
@@ -976,6 +954,10 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
                         time.sleep(.1) # TODO remove forced delay?
                         pyautogui.mouseUp(button='right')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     else:
@@ -986,6 +968,10 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
 
                         pyautogui.click(int(row[0]), int(row[1]), button='middle')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
@@ -999,6 +985,10 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
 
                         pyautogui.click(button='left')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     elif row[2] == 'M3':
@@ -1011,6 +1001,10 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
                         time.sleep(.1)
                         pyautogui.mouseUp(button='right')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     else:
@@ -1021,12 +1015,20 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
 
                         pyautogui.click(button='middle')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
 
             # Action is #string, find image in Images folder with string name
             elif row[2][0] == '#' and len(row[2]) > 1:
+                try:
+                    tN.runningRows[depth] = (macroName, intRow)
+                except:
+                    pass
                 if macroName == tN.currTab:
                     updateRunningRow()
                 # delay/100 is confidence
@@ -1082,6 +1084,10 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
 
                     pyautogui.press(row[2])
                     clickTime = time.time()
+                    try:
+                        tN.runningRows[depth] = (macroName, intRow)
+                    except:
+                        pass
                     if macroName == tN.currTab:
                         updateRunningRow()
                 elif row[2] == 'space':
@@ -1092,6 +1098,10 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
 
                     pyautogui.press(' ')
                     clickTime = time.time()
+                    try:
+                        tN.runningRows[depth] = (macroName, intRow)
+                    except:
+                        pass
                     if macroName == tN.currTab:
                         updateRunningRow()
                 if row[2] == 'tab':
@@ -1102,6 +1112,10 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
 
                     pyautogui.press('\t')
                     clickTime = time.time()
+                    try:
+                        tN.runningRows[depth] = (macroName, intRow)
+                    except:
+                        pass
                     if macroName == tN.currTab:
                         updateRunningRow()
                 else:
@@ -1115,24 +1129,14 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
         else:
             # decrement loop count param, also decrement main loop counter if main loop
             if loopsParam > 0: loopsParam = loopsParam - 1
-            if depth == 0 and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
             firstLoop = False
-            # runningRows might be empty if stop was pressed
-            try:
-                tN.runningRows.remove((macroName, intRow))
-            except:
-                pass
             continue
         # break outer loop only if inner loop breaks for loop stop
         if loopsParam == 0 or loopsLeft.get() == 0:
             break
         # decrement loop count param, also decrement main loop counter if main loop
         if loopsParam > 0: loopsParam = loopsParam - 1
-        if depth == 0 and loopsLeft.get() > 0 and not firstLoop: loopsLeft.set(loopsLeft.get() - 1)
-        try:
-            tN.runningRows.remove((macroName, intRow))
-        except:
-            pass
+        if depth == 0 and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
         firstLoop = False
         continue
 
@@ -1167,7 +1171,7 @@ def startClickingBusy(macroName, clickArray, loopsParam, depth):
         tN.keysListener.stop()
         tN.runningRows = []
         reorderRows()
-    return
+    print("Exit Clicking")
 
 
 # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
@@ -1188,6 +1192,7 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
         selectedRow = tN.treeView.item(selection[0]).get("values")[0]
     else:
         selectedRow = 0
+        tN.runningRows.append((macroName, 1))
 
     # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
     while loopsParam > 0 and loopsLeft.get() > 0 or tN.activeThread.threadFlag.is_set():
@@ -1204,15 +1209,6 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
             # Only for first loop and first macro, not for subsequent loops nor macros called by the starting macro
             if firstLoop and depth == 0 and startFromSelected == 1 and selectedRow > 0 and intRow < selectedRow:
                 continue
-
-            if intRow == 1 and firstLoop:
-                tN.runningRows.append((macroName, intRow))
-                updateRunningRow()
-            else:
-                try:
-                    tN.runningRows[depth] = (macroName, intRow)
-                except:
-                    pass
 
             # check row to see if its still holding keys
             if len(tN.currPressed) > 0 and (row[2] == "" or row[2][0] == '_'):
@@ -1294,6 +1290,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                 if loopsLeft.get() == 0: return
 
                 clickTime = time.time()
+                try:
+                    tN.runningRows[depth] = (macroName, intRow)
+                except:
+                    pass
                 if macroName == tN.currTab:
                     updateRunningRow()
             # Moved _ hold action as close top as possible as it's accuracy is most important
@@ -1348,6 +1348,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                                 tN.currPressed.append(key)
                         print("Press " + str(key) + " at " + str(time.time() - clickTime))
                 clickTime = time.time()
+                try:
+                    tN.runningRows[depth] = (macroName, intRow)
+                except:
+                    pass
                 if macroName == tN.currTab:
                     updateRunningRow()
 
@@ -1363,7 +1367,12 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                         tN.pauseEvent.wait()
                         pyautogui.click(int(row[0]), int(row[1]), button='left')
                         clickTime = time.time()
-                        updateRunningRow()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
+                        if macroName == tN.currTab:
+                            updateRunningRow()
 
                     elif row[2] == 'M3':
                         if blnDelay:
@@ -1371,12 +1380,17 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                                 return
                         if loopsLeft.get() == 0: return
 
-                        updateRunningRow()
                         pyautogui.moveTo(int(row[0]), int(row[1]))
                         pyautogui.mouseDown(button='right')
                         time.sleep(.1)  # TODO remove forced delay?
                         pyautogui.mouseUp(button='right')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
+                        if macroName == tN.currTab:
+                            updateRunningRow()
                     else:
                         if blnDelay:
                             while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait() or tN.activeThread.threadFlag.is_set():
@@ -1385,6 +1399,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
 
                         pyautogui.click(int(row[0]), int(row[1]), button='middle')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
@@ -1398,6 +1416,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
 
                         pyautogui.click(button='left')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     elif row[2] == 'M3':
@@ -1410,6 +1432,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                         time.sleep(.1)
                         pyautogui.mouseUp(button='right')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     else:
@@ -1420,6 +1446,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
 
                         pyautogui.click(button='middle')
                         clickTime = time.time()
+                        try:
+                            tN.runningRows[depth] = (macroName, intRow)
+                        except:
+                            pass
                         if macroName == tN.currTab:
                             updateRunningRow()
                     print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
@@ -1429,6 +1459,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                 # delay/100 is confidence
                 confidence = row[3]
                 position = 0
+                try:
+                    tN.runningRows[depth] = (macroName, intRow)
+                except:
+                    pass
                 if macroName == tN.currTab:
                     updateRunningRow()
                 # confidence must be a percentile
@@ -1453,7 +1487,12 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                     pyautogui.click(position[0] + global_monitor_left, position[1], button='left')
                     clickTime = time.time()
                 else:
-                    # tN.runningRows.remove((macroName, intRow))
+                    try:
+                        tN.runningRows.remove((macroName, intRow))
+                    except:
+                        pass
+                    if macroName == tN.currTab:
+                        reorderRows()
                     break
 
             # Action is !string, run macro with string name for Delay amount of times
@@ -1467,6 +1506,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
                     while threadFlag.wait((int(prevDelay) / 1000) - time.time() + clickTime) or not tN.pauseEvent.wait() or tN.activeThread.threadFlag.is_set():
                         return
                     if loopsLeft.get() == 0: return
+                    try:
+                        tN.runningRows[depth] = (macroName, intRow)
+                    except:
+                        pass
                     if macroName == tN.currTab:
                         updateRunningRow()
 
@@ -1482,6 +1525,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
 
                     pyautogui.press(row[2])
                     clickTime = time.time()
+                    try:
+                        tN.runningRows[depth] = (macroName, intRow)
+                    except:
+                        pass
                     if macroName == tN.currTab:
                         updateRunningRow()
                 elif row[2] == 'space':
@@ -1492,6 +1539,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
 
                     pyautogui.press(' ')
                     clickTime = time.time()
+                    try:
+                        tN.runningRows[depth] = (macroName, intRow)
+                    except:
+                        pass
                     if macroName == tN.currTab:
                         updateRunningRow()
                 if row[2] == 'tab':
@@ -1502,6 +1553,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
 
                     pyautogui.press('\t')
                     clickTime = time.time()
+                    try:
+                        tN.runningRows[depth] = (macroName, intRow)
+                    except:
+                        pass
                     if macroName == tN.currTab:
                         updateRunningRow()
                 else:
@@ -1518,10 +1573,10 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
             # decrement loop count param, also decrement main loop counter if main loop
             if loopsParam > 0: loopsParam = loopsParam - 1
             # runningRows might be empty if stop was pressed
-            try:
-                tN.runningRows.remove((macroName, intRow))
-            except:
-                pass
+            # try:
+            #     tN.runningRows.remove((macroName, intRow))
+            # except:
+            #     pass
             firstLoop = False
             continue
         # break outer loop only if inner loop breaks for loop stop
@@ -1530,10 +1585,6 @@ def startClicking(macroName, clickArray, threadFlag, loopsParam, depth):
         # decrement loop count param, also decrement main loop counter if main loop
         if loopsParam > 0: loopsParam = loopsParam - 1
         if depth == 0 and loopsLeft.get() > 0: loopsLeft.set(loopsLeft.get() - 1)
-        try:
-            tN.runningRows.remove((macroName, intRow))
-        except:
-            pass
         firstLoop = False
         continue
 
@@ -1589,7 +1640,6 @@ def stopClicking():
     tN.runningRows = []
     tN.monitorKeysPressed = set()
     reorderRows()
-    tagSelection()
 
     # Release all keys that are pressed so as to not leave pressed
     for pressedKey in tN.currPressed:
@@ -1673,9 +1723,7 @@ def selectRow(event):
     global previouslySelectedRow
 
     selectedRow = tN.treeView.focus()
-    if previouslySelectedRow != selectedRow:
-        reorderRows()
-    tagSelection()
+    reorderRows()
     selectedValues = tN.treeView.item(selectedRow, 'values')
 
     if len(selectedValues) > 0 and (previouslySelectedTab != tN.getNotebook().index(
@@ -1713,6 +1761,7 @@ def updateRunningRow():
     # print("updateRunningRow")
     rows = tN.treeView.get_children()
     for tuple in tN.runningRows:
+        # If running row in current tab
         if tuple[0] == tN.notebook.tab(tN.notebook.select(), "text"):
             tN.treeView.item(rows[tuple[1] - 1], tags='running')
             # Update prior row tag back to even n odd
@@ -1723,10 +1772,17 @@ def updateRunningRow():
                     tN.treeView.item(rows[tuple[1] - 2], tags='oddrow')
             # If first row then update last row back to even or odd only if more than one row in macro
             elif len(rows) > 1:
-                if (len(rows) - 1) % 2 == 0:
-                    tN.treeView.item(rows[tuple[1] - 2], tags='evenrow')
+                if tuple[1] == 1:
+                    # If running is first row in macro then update last row in macro as that might have been last running row before loop restarts
+                    if (len(rows) - 1) % 2 == 0:
+                        tN.treeView.item(rows[tuple[1] - 2], tags='evenrow')
+                    else:
+                        tN.treeView.item(rows[tuple[1] - 2], tags='oddrow')
                 else:
-                    tN.treeView.item(rows[tuple[1] - 2], tags='oddrow')
+                    if (tuple[1] - 1) % 2 == 0:
+                        tN.treeView.item(rows[tuple[1] - 2], tags='evenrow')
+                    else:
+                        tN.treeView.item(rows[tuple[1] - 2], tags='oddrow')
     tagSelection()
 
 
