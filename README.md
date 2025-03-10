@@ -1,5 +1,6 @@
 <div align="center">
-  ![StickyHead512](https://github.com/user-attachments/assets/5c81002c-2132-44d1-bb76-c04bf0e025b7)
+
+  
 
   <h3 align="center">Sticky's Autoclicker</h3>
 
