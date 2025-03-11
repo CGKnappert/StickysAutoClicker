@@ -1,4 +1,6 @@
+# Standard library imports
 import os
+from os.path import exists
 import ctypes
 from ctypes import windll, c_char_p, c_int, byref, sizeof
 errorCode = ctypes.windll.shcore.SetProcessDpiAwareness(0)
@@ -13,83 +15,55 @@ import win32gui
 import psutil
 import screeninfo
 import datetime
+
+# Third party imports
 from pathlib import Path
 from pynput import keyboard
 from pynput.keyboard import Key, Listener
-from os.path import exists
-
+# tKinter
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
 from tkinter import simpledialog
 from tkinter.messagebox import askyesno
-# import TKinterModernThemes as TKMT
-# import sv_ttk
 import tksvg
-
-# from PIL import ImageGrab
+# config file support
 import configparser as cp
+# memory leak detection
+import tracemalloc
+
+# Local app imports
+from Resources import *
 
 
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = False
 
-# TODO: Export crash reports
-# TODO: Make prettier
 
-"""
-Sticky's Autoclicker Documentation
-This is an autoclicker with fancier functionality than I have been able to find online and have always desired.
 
-The backbone of this GUI is tkinter using a grid.
-The imports used are for:
-- mouse import for finding mouse position outside of the tkinter window
-- mss for understanding the arrangement of multiple monitors and their sizes
-- PIL etc. for allowing multiple monitors when using locteonscreen 
-- pyautogui for moving mouse and clicking
-- threading for starting the clicking loop without the window becoming unresponsive
-- csv for import and export functionality
-- time for sleeping for delays
-- os for finding filepath
-- tkinter.simpledialog for asking for new macro name
-- tkinter.filedialog for importing macroscd 
-- pynput for listening to keyboard for emergency exit combo Ctrl + Shift + 1
+# Sticky's Autoclicker Documentation
+# This is an autoclicker with fancier functionality than I have been able to find online and have always desired.
 
-build with "python -m PyInstaller --onefile --noconsole --icon=StickysAutoClicker\StickyHeadIconAll.ico  --collect-all="tksvg" StickysAutoClicker\StickysAutoClicker.py"
-"""
+# The backbone of this GUI is tkinter using a grid.
+# The imports used are for:
+# - mouse import for finding mouse position outside of the tkinter window
+# - mss for understanding the arrangement of multiple monitors and their sizes
+# - PIL etc. for allowing multiple monitors when using locteonscreen 
+# - pyautogui for moving mouse and clicking
+# - threading for starting the clicking loop without the window becoming unresponsive
+# - csv for import and export functionality
+# - time for sleeping for delays
+# - os for finding filepath
+# - tkinter.simpledialog for asking for new macro name
+# - tkinter.filedialog for importing macroscd 
+# - pynput for listening to keyboard for emergency exit combo Ctrl + Shift + 1
 
-USABILITY_NOTES = ("\n"
-                  " - Selecting any row of a macro will auto-populate the X and Y positions, delay, action and comment fields with the values of that row, overwriting anything previously entered.\n"
-                  " - Shift + LCtrl + ` will set loops to 0 and stop the autoclicker immediately.\n"
-                  " - Shift + LCtrl + Tab will pause the autoclicker and pressing that key combination again will start the autoclicker where it left off.\n"
-                  "           Remember you might need to focus back on the application to be clicked or key pressed before starting again.\n"
-                  " - Overwrite will set all selected rows to the current X, Y, delay, action and comment values.\n"
-                  " - Macros are exported as csv files that are written to folder '\StickyAutoClicker\Macros' in your Documents folder.\n"
-                  " - Exported macro files are kept up to date with each edit created.\n"
-                  " - Import expects a comma separated file with no headers and only five columns: X, Y, Action, Delay and Comment.\n"
-                  " - Action will recognize the main three mouse clicks as well as any keyboard action including Shift + keys (doesn't work with Alt or Ctrl + keys).\n"
-                  " - Key presses do not move cursor, so X and Y positions do not matter.\n"
-                  " - The Start From Selected Row option in Settings will cause the macro to start from the first highlighted row in the macro or from the start if nothing is highlighted.\n"
-                  " - Action has two escape characters, ! and #, that will allow the user to continue typing rather than overwriting the action key.\n"
-                  "           This is to allow for calling another macro (!) or finding an image (#)\n"
-                  " - Typing !macroName into action and adding that row will make the row look for another macro with a name matching what follows the ! and execute that macro.\n"
-                  "           Delay serves another purpose when used with a macro action and will repeat that macro for the amount of times in the Delay column.\n"
-                  "           Macros do not need to be in a tab to be called by another macro. The csv in the \StickyAutoClicker\Macros folder will be used if it exists.\n"
-                  " - Typing #imageName into action and adding that row will make a macro look for a .png image with that name in the \StickyAutoClicker\Images folder and move the cursor to a found image and left click.\n"
-                  "           Delay will serve as the confidence percentage level when used with a find image action.\n"
-                  "           Confidence of 100 will find an exact match and confidence of 1 will find the first roughly similar image.\n"
-                  "           Finding an image will try 5 times with a .1 second delay if not found and click the image once found.\n"
-                  "           If image is not found then loop will end and next loop will start. This is to prevent the rest of the loop from going awry because the expected image was not found.\n"
-                  " - Action also allows underscore _ as a special character that will indicate the following key(s) should be pressed and held for the set amount of time in the Delay field.\n"
-                  "           Note that for these rows the Delay no longer delays after the key is held.\n"
-                  "           You can hold multiple keys at a time by continuing to type into the Action field once a _ has been entered. A | will delineate the different keys to be held.\n"
-                  "           Typing _ into action can also reset the field to remove keys you do not want pressed since backspace doesn't work.\n"
-                  " - The Record functionality will begin entering rows to the end of the current macro tab reading key presses and delays.\n"
-                  "           This functionality is quite accurate (for python) and can be quite efficien especially when paired with manual edits to shorten or remove unnessecary delays or actions.\n"
-                  "           For playback of recordings it is highly recommended to use the Busy Wait option in the Settings menu.\n"
-                  "           Busy Wait allows the delay to be accurate to around one millisecond where as non-Busy Wait is accurate to around 10-15 ms.\n"
-                  "           The downside of Busy Wait and why it shouldn't always be used is that it incurs heavy CPU usage and can be felt by users and other programs.")
+# build with "python -m PyInstaller --onefile --noconsole --add-data "StickysAutoClicker/theme/*;theme/" --icon=StickysAutoClicker\StickyHeadIconAll.ico  --collect-all="tksvg" StickysAutoClicker\StickysAutoClicker.py"
+# or with "python -m PyInstaller StickysAutoClicker.spec"
+
+
+
 
 FILE_PATH = os.path.join(os.path.expanduser(r'~\Documents'), r'StickysAutoClicker')
 
@@ -119,373 +93,20 @@ with mss.mss() as sct:
         global_monitor_left = sct.monitors[0].get('left')
         global_monitor_top = sct.monitors[0].get('top')
 
-    
-class Titlebar():
-    # Class for addingg titlebars after overrideredirect removes them
-    # Needed for greater control of buttons and theme
-    def __init__(self, root, pack, parent, icon, title_text, minimize, maximize, close, help):
-        self.root = root
-        self.parent = parent
-        root.minimized = False # only to know if root is minimized
-        root.maximized = False # only to know if root is maximized
 
-        # Create a parent for the titlebar
-        self.title_bar = ttk.Frame(root, height=10)
-        self.helpWindow = None
+def resource_path(relative_path):
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
 
-        
-        # Pack the title bar window
-        if pack:
-            self.title_bar.pack(fill=tk.X)
-        else:
-            self.title_bar.columnconfigure(0, weight=10)
-            self.title_bar.columnconfigure(1, weight=10)
-            self.title_bar.columnconfigure(2, weight=10)
-            self.title_bar.columnconfigure(3, weight=10)
-            self.title_bar.columnconfigure(4, weight=10)
-            self.title_bar.columnconfigure(5, weight=10)
-            self.title_bar.grid(row=0, column=0, columnspan=6, sticky='ew')
-
-        # Create the title bar buttons
-        buttonPos = 5
-        if close:
-            self.close_button = ttk.Button(self.title_bar, text='  ×  ', command=parent.onClose, takefocus=False)
-            if pack:
-                self.close_button.pack(side=tk.RIGHT, padx=(0, 10), pady=(5, 0))
-            else:
-                self.title_bar.columnconfigure(buttonPos, minsize=45)
-                self.close_button.grid(row=0, column=buttonPos, padx=(0, 10), pady=(5, 0), sticky='e')
-                buttonPos -= 1
-        else:
-            self.title_bar.grid(row=0, column=0, columnspan=6)
-        if maximize:
-            self.expand_button = ttk.Button(self.title_bar, text=' 🗖 ', command=self.maximize_window, takefocus=False)
-            if pack:
-                self.expand_button.pack(side=tk.RIGHT, padx=(0, 5), pady=(5, 0))
-            else:
-                self.title_bar.columnconfigure(buttonPos, minsize=45)
-                self.expand_button.grid(row=0, column=buttonPos, padx=(0, 5), pady=(5, 0), sticky='e')
-                buttonPos -= 1
-        if minimize:
-            self.minimize_button = ttk.Button(self.title_bar, text=' 🗕 ',command=self.minimize_window, takefocus=False)
-            if pack:
-                self.minimize_button.pack(side=tk.RIGHT, padx=(0, 5), pady=(5, 0))
-            else:
-                self.title_bar.columnconfigure(buttonPos, minsize=45)
-                self.minimize_button.grid(row=0, column=buttonPos, padx=(0, 5), pady=(5, 0), sticky='e')
-                buttonPos -= 1
-        if help:
-            self.helpButton = ttk.Button(self.title_bar, text="Help", command=self.showHelp, takefocus=False)
-            if pack:
-                self.helpButton.pack(side=tk.RIGHT, padx=(0, 5), pady=(5, 0))
-            else:
-                self.title_bar.columnconfigure(buttonPos, minsize=45)
-                self.helpButton.grid(row=0, column=buttonPos, padx=(0, 5), pady=(5, 0), sticky='e')
-                buttonPos -= 1
-
-        while buttonPos> 0:
-            self.title_bar.columnconfigure(buttonPos, minsize=50)
-            buttonPos -= 1
-        
-        if icon != None:
-            # Create the title bar icon
-            self.title_bar_icon = ttk.Label(self.title_bar, image=icon)
-            if pack:
-                self.title_bar_icon.pack(side=tk.LEFT, padx=(10,0), pady=(5, 0), fill=tk.Y)
-            else:
-                self.title_bar_icon.grid(row=0, column=0, padx=(10,0), pady=(5, 0), sticky='w')
-
-        # Create the title bar title
-        self.title_bar_title = ttk.Label(self.title_bar, text=title_text)
-        self.title_bar_title.configure(font=("Arial bold", 14))
-        if pack:
-            self.title_bar_title.pack(side=tk.LEFT, padx=(10,0))
-        else:
-            self.title_bar_title.grid(row=0, column=1, padx=(10,0), sticky='w')
-
-        # Bind events for moving the title bar
-        self.title_bar.bind('<Button-1>', self.move_window_bindings)
-        self.title_bar_title.bind('<Button-1>', self.move_window_bindings)
-        if icon != None:
-            self.title_bar_icon.bind('<Button-1>', self.move_window_bindings)
-        self.move_window_bindings(status=True)
-
-        # Set up the window for minimizing functionality
-        self.root.bind("<FocusIn>", self.deminimizeEvent)
-        self.root.after(10, lambda: self.set_appwindow(self.root))
-
-    # Window manager functions
-    def minimize_window(self):
-        self.root.attributes("-alpha",0)
-        self.root.minimized = True
-
-    def deminimizeEvent(self, event):
-        self.deminimize()
-
-    def deminimize(self):
-        # root.focus() 
-        self.root.attributes("-alpha",1)
-        if self.root.minimized == True:
-            self.root.minimized = False                              
-
-    def maximize_window(self):
-        if self.root.maximized == False:
-            self.root.normal_size = self.root.geometry()
-            self.expand_button.config(text=" 🗗 ")
-
-            monitors = screeninfo.get_monitors()
-            max = False
-            for m in reversed(monitors):
-                if m.x <= self.root.winfo_x() <= m.width + m.x - 1 and m.y <= self.root.winfo_y() <= m.height + m.y - 1:
-                    # print(f"{self.root.winfo_screenwidth()}x{self.root.winfo_screenheight()}+{m.x}+{m.y}")
-                    self.root.geometry(f"{self.root.winfo_screenwidth()}x{self.root.winfo_screenheight()}+{m.x}+{m.y}")
-                    max = True
-            if not max:
-                self.root.geometry(f"{self.root.winfo_screenwidth()}x{self.root.winfo_screenheight()}+{monitors[0].x}+{monitors[0].y}")
-        else:
-            self.expand_button.config(text=" 🗖 ")
-            self.root.geometry(self.root.normal_size)
-
-        self.root.maximized = not self.root.maximized
-
-    def set_appwindow(self, mainWindow):
-        global hwnd
-        hwnd = windll.user32.GetParent(mainWindow.winfo_id())
-        mainWindow.wm_withdraw()
-        mainWindow.after(10, lambda: mainWindow.wm_deiconify())
-
-    def get_pos(self, event):
-        global xwin, ywin
-        xwin = event.x_root
-        ywin = event.y_root
-
-    def move_window(self, event):
-        global xwin, ywin
-        self.root.geometry(f'+{event.x_root + self.root.winfo_x() - xwin}+{event.y_root + self.root.winfo_y() - ywin}')
-        xwin = event.x_root
-        ywin = event.y_root
-
-    def move_window_bindings(self, *args, status=True):
-        if self.root.maximized:
-            self.maximize_window()
-        if status == True:
-            self.title_bar.bind("<B1-Motion>", self.move_window)
-            self.title_bar.bind("<Button-1>", self.get_pos)
-            self.title_bar_title.bind("<B1-Motion>", self.move_window)
-            self.title_bar_title.bind("<Button-1>", self.get_pos)
-            try:
-                self.title_bar_icon.bind("<B1-Motion>", self.move_window)
-                self.title_bar_icon.bind("<Button-1>", self.get_pos)
-            except:
-                pass
-            
-    def showHelp(self):
-        if self.parent.helpWindow is None:
-            self.helpWindow = helpWindow(self.root, self.parent)
-            self.parent.helpWindow = self.helpWindow
-            try:
-                if self.parent.stayOnTop.get() == 0:
-                    self.helpWindow.helpWindow.attributes("-topmost", False)
-                else:
-                    self.helpWindow.helpWindow.attributes("-topmost", True)
-            except:
-                pass
-        else:
-            self.helpWindow.onClose()
-            self.helpWindow = None
+    return os.path.join(base_path, relative_path)
 
 
-
-class helpWindow(ttk.Frame):
-    # window to display help text that informs user of available functionality
-    def __init__(self, root, parent):
-        super().__init__(root)
-        self.root = root
-        self.parent = parent
-        
-        try:
-            if self.state() == "normal":
-                self.onClose()
-            else:
-                self.helpWindow.wm_state("normal")
-        except:
-            self.helpWindow = Toplevel(self.root)
-            self.helpWindow.overrideredirect(True)
-            config = cp.ConfigParser()
-            config.read(os.path.join(FILE_PATH, r'config.ini'))
-            if config.has_option("Position", "helpx") and config.has_option("Position", "helpy"):
-                self.helpWindow.geometry("+" + config.get("Position", "helpx") + "+" + config.get("Position", "helpy"))
-            self.titlebar = Titlebar(self.helpWindow, True, self, STICKY_ICON, "Sticky's Autoclicker Help", True, False, True, False)
-            self.helpWindow.resizable(height=None, width=None)
-            self.helpWindow.wm_title("Sticky's Autoclicker Help")
-            self.helpWindow.protocol("WM_DELETE_WINDOW", self.onClose)
-            self.helpWindow.focus_force()
-
-            self.helpLabel = ttk.Label(self.helpWindow, text=USABILITY_NOTES, justify=LEFT)
-            self.helpLabel.pack(side=tk.BOTTOM, padx=15, pady=15)
-
-            self.titleLabel = ttk.Label(self.helpWindow, text="Usability Notes", font=("Arial bold", 14), justify=CENTER)
-            self.titleLabel.pack(side=tk.BOTTOM)
-
-    def onClose(self):
-        config = cp.ConfigParser()
-        config.read(os.path.join(FILE_PATH, 'config.ini'))
-        config.set('Position', 'helpx', str(self.helpWindow.winfo_rootx()))
-        config.set('Position', 'helpy', str(self.helpWindow.winfo_rooty()))
-        with open(os.path.join(FILE_PATH, r'config.ini'), 'w') as configfile:
-            config.write(configfile)
-        self.helpWindow.destroy()
-        self.helpWindow = None
-        self.parent.helpWindow = None
-        self.root.focus()
-
-
-class settingsWindow(ttk.Frame):
-    # window to display options and handle changing of options
-    def __init__(self, root, parent):
-        super().__init__(root)
-        self.root = root
-        self.parent = parent
-        
-        try:
-            if self.state() == "normal":
-                self.onClose()
-            else:
-                self.settingsWindow.wm_state("normal")
-        except:
-            self.settingsWindow = Toplevel(self)
-            self.settingsWindow.overrideredirect(True)
-            config = cp.ConfigParser()
-            config.read(os.path.join(FILE_PATH, r'config.ini'))
-            if config.has_option("Position", "settingsx") and config.has_option("Position", "settingsy"):
-                self.settingsWindow.geometry("+" + config.get("Position", "settingsx") + "+" + config.get("Position", "settingsy"))
-            self.titlebar = Titlebar(self.settingsWindow, False, self, STICKY_ICON, "Settings", True, False, True, False)
-            self.settingsWindow.resizable(height=None, width=None)
-            self.settingsWindow.wm_title("Sticky's Autoclicker Settings")
-            self.settingsWindow.protocol("WM_DELETE_WINDOW", self.onClose)
-            self.settingsWindow.iconphoto(False, STICKY_ICON)
-            self.settingsWindow.focus_force()
-
-            self.settingsFrame = ttk.LabelFrame(self.settingsWindow)
-            self.settingsFrame.grid(row=1, column=0, rowspan=2, columnspan=6, padx=(10, 10), pady=(0, 10), sticky="nsew")
-
-            # Rows 0 and 1\
-            self.busyLabel = ttk.Label(self.settingsFrame, text="Use Busy Wait")
-            self.busyLabel.grid(row=1, column=0, columnspan=2, padx=10, sticky="nsew")
-            self.busyButton = ttk.Checkbutton(self.settingsFrame, variable=parent.busyWait, onvalue=1, offvalue=0, command=parent.toggleBusy)
-            self.busyButton.grid(row=2, column=0, padx=10, pady=10)
-
-            self.windowLabel = ttk.Label(self.settingsFrame, text="Application Selector")
-            self.windowLabel.grid(row=1, column=2, sticky='s', padx=10)
-            self.windowButton = ttk.Button(self.settingsFrame, text="Find App", command=parent.windowFinder, takefocus=False)
-            self.windowButton.grid(row=2, column=2, sticky='n', padx=10, pady=10)
-
-            self.hiddenLabel = ttk.Label(self.settingsFrame, text="Use Hidden Mode")
-            self.hiddenLabel.grid(row=1, column=4, sticky='s', padx=10)
-            self.hiddenButton = ttk.Checkbutton(self.settingsFrame, variable=parent.hiddenMode, onvalue=1, offvalue=0, command=parent.toggleHidden)
-            self.hiddenButton.grid(row=2, column=4, sticky='n', padx=10, pady=10)
-
-            # Rows 3 and 4
-            self.startFromSelectedLabel = ttk.Label(self.settingsFrame, text="Start From Selected Row")
-            self.startFromSelectedLabel.grid(row=3, column=0, padx=10)
-            self.startFromSelectedButton = ttk.Checkbutton(self.settingsFrame, variable=parent.startFromSelected, onvalue=1, offvalue=0, command=parent.toggleStartFromSelected)
-            self.startFromSelectedButton.grid(row=4, column=0, padx=10, pady=10)
-
-            self.stayOnTopLabel = ttk.Label(self.settingsFrame, text="Stay On Top")
-            self.stayOnTopLabel.grid(row=3, column=2, padx=10)
-            self.stayOnTopButton = ttk.Checkbutton(self.settingsFrame, variable=parent.stayOnTop, onvalue=1, offvalue=0, command=parent.toggleStayOnTop)
-            self.stayOnTopButton.grid(row=4, column=2, padx=10, pady=10)
-
-            self.loopsByMacroLabel = ttk.Label(self.settingsFrame, text="Loops By Macro")
-            self.loopsByMacroLabel.grid(row=3, column=4, padx=10)
-            self.loopsByMacroButton = ttk.Checkbutton(self.settingsFrame, variable=parent.loopsByMacro, onvalue=1, offvalue=0, command=parent.toggleLoopsByMacro)
-            self.loopsByMacroButton.grid(row=4, column=4, padx=10, pady=10)
-
-    def onClose(self):
-        # print("closesettings")
-        config = cp.ConfigParser()
-        config.read(os.path.join(FILE_PATH, 'config.ini'))
-        config.set('Position', 'settingsx', str(self.settingsWindow.winfo_rootx()))
-        config.set('Position', 'settingsy', str(self.settingsWindow.winfo_rooty()))
-        with open(os.path.join(FILE_PATH, r'config.ini'), 'w') as configfile:
-            config.write(configfile)
-        self.settingsWindow.destroy()
-        self.parent.settingsWindow = None
-        self.settingsWindow = None
-        self.root.focus()
-
-
-class logWindow(ttk.Frame):
-    # window for viewing click history and errors
-    def __init__(self, root, parent, text):
-        super().__init__(root)
-        self.root = root
-        self.parent = parent
-        
-        try:
-            if self.state() == "normal":
-                self.onClose()
-            else:
-                self.logWindow.wm_state("normal")
-        except:
-            self.logWindow = Toplevel(self)
-            config = cp.ConfigParser()
-            config.read(os.path.join(FILE_PATH, r'config.ini'))
-            if config.has_option("Position", "logx") and config.has_option("Position", "logy"):
-                self.logWindow.geometry("480x600" + "+" + config.get("Position", "logx") + "+" + config.get("Position", "logy"))
-            self.logWindow.overrideredirect(True)
-            self.titlebar = Titlebar(self.logWindow, True, self, STICKY_ICON, "Sticky's Autoclicker Log", True, True, True, False)
-            self.logWindow.resizable(height=None, width=None)
-            self.logWindow.wm_title("Sticky's Autoclicker Log")
-            self.logWindow.protocol("WM_DELETE_WINDOW", self.onClose)
-            self.logWindow.focus_force()
-
-            self.frame = ttk.Frame(self.logWindow)
-            self.frame.pack(side="left", ipadx=10, fill="both", expand=True) 
-            self.frame.config(width=470, height=480)
-            self.text = tk.Text(self.frame)
-
-            # self.horizontalTabScroll = ttk.Scrollbar(self.frame, orient="horizontal", command=self.text.xview)
-            # self.horizontalTabScroll.pack(side='bottom', fill=X, anchor="s")
-            self.verticalTabScroll = ttk.Scrollbar(self.frame, orient='vertical', command=self.text.yview)
-            self.verticalTabScroll.pack(side=RIGHT, fill=Y, anchor="e")
-
-            self.text.configure(yscrollcommand=self.verticalTabScroll.set)
-            self.text.pack(side="left", padx=(5, 0), pady=(5, 0), fill="both", expand=True)  
-            self.text.insert('1.0', text)
-
-            # sizegrip could not lit above either scrollbar despite the config being essentially the same as on the main windows notebook
-            # self.grip = ttk.Sizegrip()
-            # self.grip.place(relx=1.0, rely=1.0, anchor="se")
-            # self.grip.lift(self.text)
-            # self.grip.bind("<B1-Motion>", self.moveMouseButton)
-
-    def updateText(self, text):
-        self.text.delete("1.0", END)
-        self.text.insert('1.0', text)
-
-
-    def moveMouseButton(self, e):
-        x1=self.root.winfo_pointerx()
-        y1=self.root.winfo_pointery()
-        x0=self.root.winfo_rootx()
-        y0=self.root.winfo_rooty()
-
-    def onClose(self):
-        # print("closelog")
-        config = cp.ConfigParser()
-        config.read(os.path.join(FILE_PATH, 'config.ini'))
-        config.set('Position', 'logx', str(self.logWindow.winfo_rootx()))
-        config.set('Position', 'logy', str(self.logWindow.winfo_rooty()))
-        with open(os.path.join(FILE_PATH, r'config.ini'), 'w') as configfile:
-            config.write(configfile)
-        self.logWindow.destroy()
-        self.parent.logWindow = None
-        self.logWindow = None
-        self.root.focus()
-
-
-
+###################################################################################################
+#####                   Notebook Class Definition                                             #####
+###################################################################################################
 class treeviewNotebook(ttk.Frame):
     # class with notebook with tabs of treeviews
     def __init__(self, parent):
@@ -511,23 +132,27 @@ class treeviewNotebook(ttk.Frame):
         self.notebookFrame = None
         self.recorder = None
         self.window = None
-        self.titlebar = Titlebar(self.parent, True, self, STICKY_ICON, "Sticky's Autoclicker", True, False, True, True)
+        self.titlebar = Titlebar(self.parent, True, self, STICKY_ICON, "Sticky's Autoclicker", True, False, True, True, FILE_PATH)
 
         # Array for currently pressed keys so they can be unpressed when stopping clicking
         self.currPressed = []
         self.currTab = None
         self.runningRows = []
         self.macroLoops = {}
-        self.busyWait = tk.IntVar()
-        self.hiddenMode = tk.IntVar()
-        self.startFromSelected = tk.IntVar()
-        self.stayOnTop = tk.IntVar()
-        self.loopsByMacro = tk.IntVar()
-        self.selectedApp = ''
         self.keysListener = False
         self.pauseEvent = None
         self.monitorKeysPressed = set()
         self.clickLog = []
+
+        # Settings
+        self.busyWait = tk.IntVar()
+        self.hiddenMode = tk.IntVar()
+        self.developerMode = tk.IntVar()
+        self.startFromSelected = tk.IntVar()
+        self.stayOnTop = tk.IntVar()
+        self.loopsByMacro = tk.IntVar()
+        self.selectedApp = ''
+        
 
         # window references for knowing if window is already created or not
         self.settingsWindow = None
@@ -703,7 +328,7 @@ class treeviewNotebook(ttk.Frame):
 
         self.stopButton.config(state=DISABLED)
 
-        self.rCM = rightClickMenu(self)
+        self.rCM = RightClickMenu(self)
         self.previouslySelectedTab = None
         self.previouslySelectedRow = None
 
@@ -776,6 +401,10 @@ class treeviewNotebook(ttk.Frame):
         self.grip.bind("<B1-Motion>", self.moveMouseButton)
 
 
+    def frame_configure(self, event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+
     def moveMouseButton(self, e):
         x1 = self.parent.winfo_pointerx()
         y1 = self.parent.winfo_pointery()
@@ -785,7 +414,6 @@ class treeviewNotebook(ttk.Frame):
         self.parent.geometry("%sx%s" % ((x1-x0),(y1-y0)))
 
     
-
     def loopEntryKey(self, event):
         # print(event)
         # print(self.loopsByMacro.get())
@@ -931,6 +559,13 @@ class treeviewNotebook(ttk.Frame):
                     config.set('Settings', 'stayontop', '1')
                     updateConfig = True
 
+                if config.has_option("Settings", "developerMode"):
+                    self.developerMode.set(config.get("Settings", "developerMode"))
+                else:
+                    self.developerMode.set(0)
+                    config.set('Settings', 'developerMode', str(self.developerMode.get()))
+                    updateConfig = True
+
                 if config.has_option("Settings", "hiddenmode"):
                     self.hiddenMode.set(config.get("Settings", "hiddenmode"))
                 else:
@@ -972,6 +607,8 @@ class treeviewNotebook(ttk.Frame):
                 config.set('Settings', 'startfromselected', str(self.startFromSelected.get()))
                 self.stayOnTop.set(1)
                 config.set('Settings', 'stayontop', str(self.stayOnTop.get()))
+                self.developerMode.set(0)
+                config.set('Settings', 'developerMode', str(self.developerMode.get()))
                 self.hiddenMode.set(0)
                 config.set('Settings', 'hiddenmode', str(self.hiddenMode.get()))
                 self.selectedApp = ""
@@ -1015,7 +652,7 @@ class treeviewNotebook(ttk.Frame):
                 self.notebook.add(self.tabFrame, text='macro1')
                 self.treeTabs['macro1'] = self.notebook.index(self.notebook.select())
                 config['Tabs'] = {'opentabs': str('|'.join(self.treeTabs.keys()))}
-                config['Settings'] = {'busyWait': int(self.busyWait.get()), 'startFromSelected': int(self.startFromSelected.get()), 'stayontop': int(self.stayOnTop.get()),  'selectedApp': str(self.selectedApp), 'hiddenMode': int(self.hiddenMode.get()), 'loops': int(self.loopEntry.get())}
+                config['Settings'] = {'busyWait': int(self.busyWait.get()), 'startFromSelected': int(self.startFromSelected.get()), 'stayontop': int(self.stayOnTop.get()),  'selectedApp': str(self.selectedApp), 'developerMode': int(self.developerMode.get()), 'hiddenMode': int(self.hiddenMode.get()), 'loops': int(self.loopEntry.get())}
                 self.loopsByMacro.set(0)
                 config.set('Settings', 'loopsbymacro',  str(0))
                 self.startFromSelected.set(0)
@@ -1024,6 +661,7 @@ class treeviewNotebook(ttk.Frame):
                     self.parent.attributes("-topmost", False)
                 else:
                     self.parent.attributes("-topmost", True)
+                self.developerMode.set(0)
                 self.hiddenMode.set(0)
                 self.selectedApp = ""
                 self.loopEntry.insert(0, 1)
@@ -1060,12 +698,14 @@ class treeviewNotebook(ttk.Frame):
                 self.parent.attributes("-topmost", False)
             else:
                 self.parent.attributes("-topmost", True)
+            self.developerMode.set(0)
             self.hiddenMode.set(0)
+            self.developerMode.set(0)
             self.selectedApp = ""
             self.loopEntry.insert(0, 1)
 
             config = cp.ConfigParser()
-            config['Settings'] = {'busyWait': int(self.busyWait.get()), 'startFromSelected': int(self.startFromSelected.get()), 'stayontop': int(self.stayOnTop.get()),  'selectedApp': str(self.selectedApp), 'hiddenMode': int(self.hiddenMode.get()), 'loops': int(self.loopEntry.get())}
+            config['Settings'] = {'busyWait': int(self.busyWait.get()), 'startFromSelected': int(self.startFromSelected.get()), 'stayontop': int(self.stayOnTop.get()),  'selectedApp': str(self.selectedApp), 'developerMode': int(self.developerMode.get()), 'hiddenMode': int(self.hiddenMode.get()), 'loops': int(self.loopEntry.get())}
             self.loopsByMacro.set(0)
             config.set('Settings', 'loopsbymacro',  str(0))
             config['Tabs'] = {'openTabs': str('|'.join(self.treeTabs.keys()))}
@@ -1093,8 +733,9 @@ class treeviewNotebook(ttk.Frame):
         
         self.after(200, self.scrollLeft)
 
-    # Start clicking helper to multi thread click loop, otherwise sleep will make windows want to kill
+
     def threadStartClicking(self):
+        # Start clicking helper to multi thread click loop, otherwise sleep will make windows want to kill
         # save current macro to csv, easier to read, helps update retention
         self.exportMacro()
 
@@ -1124,6 +765,7 @@ class treeviewNotebook(ttk.Frame):
             self.pauseEvent.set()
             self.activeThread = threading.Thread(target=self.startClicking, args=(currTab, self.busyWait.get() == 1, clickArray, int(self.loopEntry.get()), 0))
             self.activeThread.threadFlag = threadFlag
+            self.activeThread.daemon = True
             self.activeThread.start()
         except Exception as e:
             # print(e)
@@ -1135,14 +777,13 @@ class treeviewNotebook(ttk.Frame):
         try:
             self.monitorThread = threading.Thread(target=self.monitorKeys, args=())
             self.monitorThread.threadFlag = self.activeThread.threadFlag
+            self.monitorThread.daemon = True
             self.monitorThread.start()
         except Exception as e:
             # print(e)
             self.logAction("", depth, e)
             # hmmmmm
             print("Error: unable to start exit monitoring thread")
-
-
 
 
     def on_press(self, key):
@@ -1174,9 +815,10 @@ class treeviewNotebook(ttk.Frame):
             listener.join()
             
 
-    # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
-    # Intentionally uses busy wait for most accurate delays
+    # @profile
     def startClicking(self, macroName, busy, clickArray, loopsParam, depth):
+        # Start Clicking button will loop through active notebook tab's treeview and move mouse, call macro, search for image and click or type keystrokes with specified delays
+        # Intentionally uses busy wait for most accurate delays
         try:
             self.update()
             # print("startClicking ", macroName)
@@ -1194,8 +836,11 @@ class treeviewNotebook(ttk.Frame):
                 selectedRow = self.treeView.item(selection[0]).get("values")[0]
             else:
                 selectedRow = 0
-            if depth > 0 or startFromSelected == 0 or selectedRow == 1 or selectedRow == 0:
+            if self.runningRows == None or len(self.runningRows) == 0:
+                self.runningRows = [(macroName, 1)]
+            else:
                 self.runningRows.append((macroName, 1))
+            skipped = startFromSelected
 
             # check Loopsleft as well to make sure Stop button wasn't pressed since this doesn't ues a global for loop count
             while loopsParam > 0 and self.loopsLeft.get() > 0 or self.activeThread.threadFlag.is_set():
@@ -1203,7 +848,6 @@ class treeviewNotebook(ttk.Frame):
                 self.logAction("", depth, "Begin " + macroName + ", looping " + str(loopsParam) + " times.")
                 intRow = 0
                 startTime = time.time()
-                skipped = 0
 
                 for row in clickArray:
                     # print(row)
@@ -1212,10 +856,12 @@ class treeviewNotebook(ttk.Frame):
                     # When start from selected row setting is true then find highlighted row(s) and skip to from first selected row
                     # Only for first loop and first macro, not for subsequent loops nor macros called by the starting macro
                     if firstLoop and depth == 0 and startFromSelected == 1 and selectedRow > 1 and intRow < selectedRow:
-                        # skipped = 1
+                        skipped = 1
                         continue
-                    # else:
-                        # self.updateRunningRow()
+                    elif skipped == 1:
+                        skipped = 0
+                        self.runningRows[depth] = (macroName, intRow)
+                        self.updateRunningRow()
 
                     # check row to see if its still holding keys
                     if len(self.currPressed) > 0 and (row[2] == "" or row[2][0] == '_'):
@@ -1574,11 +1220,11 @@ class treeviewNotebook(ttk.Frame):
                         self.logAction(row[4], depth, "Wait " + str(row[3]) + " ms and then press " + str(row[2]) + ".")
                         # print("Press " + str(row[2]) + " at " + str(time.time() - startTime))
 
-                    if len(self.runningRows) > 0:
-                        # self.removeRunningRow(self.runningRows[depth])
-                        self.runningRows[depth] = (macroName, intRow)
-                    else:
-                        self.runningRows.append((macroName, intRow))
+                    if self.runningRows[depth] != (macroName, intRow):
+                        self.removeRunningRow(self.runningRows[depth])
+                    self.runningRows[depth] = (macroName, intRow)
+                    # else:
+                    #     self.runningRows.append((macroName, intRow))
                     if macroName == self.currTab:
                         self.updateRunningRow()
 
@@ -1656,6 +1302,7 @@ class treeviewNotebook(ttk.Frame):
             self.keysListener.stop()
             self.activeThread.threadFlag.set()
             self.activeThread.join(1)
+            self.activeThread = None
         except:
             pass
 
@@ -1664,7 +1311,7 @@ class treeviewNotebook(ttk.Frame):
         except:
             pass
 
-        self.runningRows = []
+        self.runningRows = None
         self.monitorKeysPressed = set()
         self.reorderRows()
         self.tagSelection()
@@ -1763,8 +1410,6 @@ class treeviewNotebook(ttk.Frame):
         except tk.TclError:
             pass
 
-    def frame_configure(self, event):
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
 
     def unselectTab(self, event):
@@ -1788,7 +1433,7 @@ class treeviewNotebook(ttk.Frame):
         
         self.after(200, self.scrollRight)
 
-    
+
     def scrollLeft(self):
         self.canvas.xview_moveto(0.0)
 
@@ -1803,7 +1448,7 @@ class treeviewNotebook(ttk.Frame):
     
     def scrollDown(self):
         self.treeView.yview_moveto(1.0)
-
+        
 
     def toggleRecording(self):
         if self.recorder is not None:
@@ -1893,11 +1538,11 @@ class treeviewNotebook(ttk.Frame):
 
 
     def removeRunningRow(self, tupleRow):
-        print("Remove " + str(tupleRow))
+        # print("Remove " + str(tupleRow))
         rows = self.treeView.get_children()
         if tupleRow[0] == self.notebook.tab(self.notebook.select(), "text"):
-            print(self.treeView.item(rows[tupleRow[1] - 1])['tags'])
-            if tupleRow[1] - 1 % 2 == 0:
+            # print(self.treeView.item(rows[tupleRow[1] - 1])['tags'])
+            if (tupleRow[1] - 1) % 2 == 0:
                 if self.treeView.item(rows[tupleRow[1] - 1])['tags'][0] == 'selected' or self.treeView.item(rows[tupleRow[1] - 1])['tags'][0] == 'selectedandrunning':
                     self.treeView.item(rows[tupleRow[1] - 1], tags='selected')
                 else:
@@ -1908,12 +1553,14 @@ class treeviewNotebook(ttk.Frame):
                 else:
                     self.treeView.item(rows[tupleRow[1] - 1], tags='oddrow')
 
+
     def reorderRows(self):
         rows = self.treeView.get_children()
         i = 1
         # print("reorderRows")
         # overwrite all rows back to even n odd
         for row in rows:
+            # print(row)
             if i % 2 == 0:
                 self.treeView.item(row, text=i, tags='oddrow')
                 self.treeView.set(row, "Step", i)
@@ -1929,38 +1576,12 @@ class treeviewNotebook(ttk.Frame):
         rows = self.treeView.get_children()
         for tuple in self.runningRows:
             # If running row in current tab
-            # print(tuple)
             # print(self.treeView.item(rows[tuple[1] - 1])['tags'])
             if tuple[0] == self.notebook.tab(self.notebook.select(), "text"):
                 if self.treeView.item(rows[tuple[1] - 1])['tags'][0] == 'selected' or self.treeView.item(rows[tuple[1] - 1])['tags'][0] == 'selectedandrunning':
                     self.treeView.item(rows[tuple[1] - 1], tags='selectedandrunning')
                 else:
                     self.treeView.item(rows[tuple[1] - 1], tags='running')
-                # Update prior row tag back to even n odd
-                if tuple[1] > 1:
-                    if tuple[1] % 2 == 0:
-                        if self.treeView.item(rows[tuple[1] - 2])['tags'][0] == 'selected' or self.treeView.item(rows[tuple[1] - 2])['tags'][0] == 'selectedandrunning':
-                            self.treeView.item(rows[tuple[1] - 2], tags='selected')
-                        else:
-                            self.treeView.item(rows[tuple[1] - 2], tags='evenrow')
-                    else:
-                        if self.treeView.item(rows[tuple[1] - 2])['tags'][0] == 'selected' or self.treeView.item(rows[tuple[1] - 2])['tags'][0] == 'selectedandrunning':
-                            self.treeView.item(rows[tuple[1] - 2], tags='selected')
-                        else:
-                            self.treeView.item(rows[tuple[1] - 2], tags='oddrow')
-                # If first row then update last row back to even or odd only if more than one row in macro
-                elif len(rows) > 1:
-                        # If running is first row in macro then update last row in macro as that might have been last running row before loop restarts
-                    if (len(rows) - 1) % 2 == 0:
-                        if self.treeView.item(rows[len(rows) - 1])['tags'][0] == 'selected' or self.treeView.item(rows[tuple[1] - 2])['tags'][0] == 'selectedandrunning':
-                            self.treeView.item(rows[len(rows) - 1], tags='selected')
-                        else:
-                            self.treeView.item(rows[len(rows) - 1], tags='evenrow')
-                    else:
-                        if self.treeView.item(rows[len(rows) - 1])['tags'][0] == 'selected' or self.treeView.item(rows[tuple[1] - 2])['tags'][0] == 'selectedandrunning':
-                            self.treeView.item(rows[len(rows) - 1], tags='selected')
-                        else:
-                            self.treeView.item(rows[len(rows) - 1], tags='oddrow')
 
 
     def tagSelectionClear(self, event):
@@ -1996,7 +1617,6 @@ class treeviewNotebook(ttk.Frame):
                                             filetypes=(("csv files", "*.csv"),))
         answer = True
         found = 0
-
         # look for tab with same name as imported macro, will overwrite that tab if imported
         # this will ensure each macro has a unique name so that when a macro calls another macro there is no confusion over which macro should be called
         for i in range(len(self.notebook.tabs())):
@@ -2005,7 +1625,6 @@ class treeviewNotebook(ttk.Frame):
                                 os.path.splitext(os.path.basename(filename))[0])
                 found = i + 1
                 break
-
         # only open if file exists and overwrite true (answer defaults to true in case it is not asked)
         if filename and answer:
             with open(filename, 'r') as csvFile:
@@ -2020,12 +1639,10 @@ class treeviewNotebook(ttk.Frame):
         filename = str(
             self.notebook.tab(self.notebook.select(), 'text').replace(r'/', r'-').replace(r'\\', r'-').replace(r'*', r'-').replace(
                 r'?', r'-').replace(r'[', r'-').replace(r']', r'-').replace(r'<', r'-').replace(r'>', r'-').replace(r'|', r'-'))
-
         # print('export; ', filename)
         with open(os.path.join(savePath, str(filename + '.csv')), 'w', newline='') as newMacro:
             csvWriter = csv.writer(newMacro, delimiter=',')
             children = self.treeView.get_children()
-
             for child in children:
                 childValues = self.treeView.item(child, 'values')
                 # Do not include the Step column
@@ -2038,7 +1655,6 @@ class treeviewNotebook(ttk.Frame):
             # at least two entries exist
             keys = str(self.actionEntry.get())[1:str(self.actionEntry.get()).rfind('|')].split('|')
             recentKey = str(self.actionEntry.get())[str(self.actionEntry.get()).rfind('|') + 1:]
-
             if recentKey in keys:
                 cleanActionEntry = str(self.actionEntry.get())[0:str(self.actionEntry.get()).rfind('|')]
                 self.actionEntry.delete(0, END)
@@ -2154,6 +1770,7 @@ class treeviewNotebook(ttk.Frame):
         self.actionEntry.insert(0, '!Paste(')
         self.after(10, self.actionPasteClose)
 
+
     def actionPasteClose(self):
         # let paste apply and then add closing
         self.actionEntry.insert(END, ')')
@@ -2200,6 +1817,17 @@ class treeviewNotebook(ttk.Frame):
             config = cp.ConfigParser()
             config.read(os.path.join(FILE_PATH, 'config.ini'))
             config.set('Settings', 'busyWait', str(self.busyWait.get()))
+            with open(os.path.join(FILE_PATH, 'config.ini'), 'w') as configfile:
+                config.write(configfile)
+        except:
+            pass
+
+
+    def toggleDeveloper(self):
+        try:
+            config = cp.ConfigParser()
+            config.read(os.path.join(FILE_PATH, 'config.ini'))
+            config.set('Settings', 'developerMode', str(self.developerMode.get()))
             with open(os.path.join(FILE_PATH, 'config.ini'), 'w') as configfile:
                 config.write(configfile)
         except:
@@ -2296,7 +1924,7 @@ class treeviewNotebook(ttk.Frame):
 
     def openLogWindow(self):
         if self.logWindow is None:
-            self.logWindow = logWindow(self.parent, self, "\n".join(self.clickLog))
+            self.logWindow = logWindow(self.parent, self, "\n".join(self.clickLog), FILE_PATH, STICKY_ICON)
             try:
                 if self.logWindow is not None:
                     if self.stayOnTop.get() == 0:
@@ -2312,7 +1940,7 @@ class treeviewNotebook(ttk.Frame):
 
     def openSettingsWindow(self):
         if self.settingsWindow is None:
-            self.settingsWindow = settingsWindow(self.parent, self)
+            self.settingsWindow = settingsWindow(self.parent, self, FILE_PATH, STICKY_ICON)
             try:
                 if self.settingsWindow is not None:
                     if self.stayOnTop.get() == 0:
@@ -2390,308 +2018,12 @@ class treeviewNotebook(ttk.Frame):
 
 
 
-class rightClickMenu():
-    def __init__(self, tree):
-        self.rightClickMenu = Menu(tree, tearoff=0)
-        self.rightClickMenu.add_command(label="Move up", command=self.moveUp)
-        self.rightClickMenu.add_command(label="Move down", command=self.moveDown)
-        self.rightClickMenu.add_command(label="Remove", command=self.removeRow)
-        self.rightClickMenu.add_command(label="Select All", command=self.selectAll)
-        self.rightClickMenu.add_separator()
-        self.rightClickMenu.add_command(label="New Macro", command=self.newMacro)
-        self.rightClickMenu.add_command(label="Close Macro", command=self.closeTab)
-        self.tree = tree
-
-    def showRightClickMenu(self, event):
-        try:
-            self.rightClickMenu.tk_popup(event.x_root + 0, event.y_root + 0, 0)
-        finally:
-            self.rightClickMenu.grab_release()
-
-    def newMacro(self):
-        name = simpledialog.askstring("Input", "New Macro Name", parent=self.tree)
-        if str(name).strip() and name:
-            self.tree.addTab(str(name).strip())
-
-    def moveUp(self):
-        selectedRows = self.tree.treeView.selection()
-        for row in selectedRows:
-            self.tree.treeView.move(row, self.tree.treeView.parent(row), self.tree.treeView.index(row) - 1)
-        self.tree.reorderRows()
-        self.tree.tagSelection()
-        self.tree.exportMacro()
-
-    def moveDown(self):
-        selectedRows = self.tree.treeView.selection()
-        for row in reversed(selectedRows):
-            self.tree.treeView.move(row, self.tree.treeView.parent(row), self.tree.treeView.index(row) + 1)
-        self.tree.reorderRows()
-        self.tree.tagSelection()
-        self.tree.exportMacro()
-
-    def removeRow(self):
-        selectedRows = self.tree.treeView.selection()
-        for row in selectedRows:
-            self.tree.treeView.delete(row)
-        self.tree.reorderRows()
-        self.tree.tagSelection()
-        self.tree.exportMacro()
-
-    def selectAll(self):
-        for row in self.tree.treeView.get_children():
-            self.tree.treeView.selection_add(row)
-            self.tree.treeView.item(row, tag='selected')
-
-    def closeTab(self):
-        self.tree.closeTab()
-
-
-class CreateToolTip(object):
-    def __init__(self, widget, root, text='widget info'):
-        self.waittime = 500     #miliseconds
-        self.wraplength = 180   #pixels
-        self.widget = widget
-        self.text = text
-        self.widget.bind("<Enter>", self.enter)
-        self.widget.bind("<Leave>", self.leave)
-        self.widget.bind("<ButtonPress>", self.leave)
-        self.id = None
-        self.tw = None
-        self.root = root
-
-    def enter(self, event=None):
-        self.schedule()
-
-    def leave(self, event=None):
-        self.unschedule()
-        self.hidetip()
-
-    def schedule(self):
-        self.unschedule()
-        self.id = self.widget.after(self.waittime, self.showtip)
-
-    def unschedule(self):
-        id = self.id
-        self.id = None
-        if id:
-            self.widget.after_cancel(id)
-
-    def showtip(self, event=None):
-        x = y = 0
-        # x, y, cx, cy = self.widget.bbox("insert")
-        x += self.widget.winfo_rootx() + self.widget.winfo_width()
-        y += self.widget.winfo_rooty() + self.widget.winfo_height()
-        # creates a toplevel window
-        self.tw = Toplevel(self.root)
-        self.tw.wm_attributes("-topmost", 1)
-        # Leaves only the label and removes the app window
-        self.tw.wm_overrideredirect(True)
-        self.tw.wm_geometry("+%d+%d" % (x, y))
-        label = ttk.Label(self.tw, text=self.text, justify='left',
-                       background="#000000", relief='solid', borderwidth=1,
-                       wraplength = self.wraplength)
-        label.pack(ipadx=8, ipady=8)
-
-    def hidetip(self):
-        tw = self.tw
-        self.tw= None
-        if tw:
-            tw.destroy()
-
-
-
-class Recorder:
-    # Constants for key conversion
-    # pynput needed for hooking
-    # pyautogui better for
-    _keyDict = {
-        'Key.shift': 'Shift_L',
-        'Key.shift_r': 'Shift_R',
-        str(keyboard.Key.ctrl_l): 'Control_L',
-        str(keyboard.Key.ctrl_r): 'Control_R',
-        str(keyboard.Key.tab): 'Tab',
-        str(keyboard.Key.caps_lock): 'Caps_Lock',
-        str(keyboard.KeyCode.from_vk(96)): 'NUM0',
-        str(keyboard.KeyCode.from_vk(97)): 'NUM1',
-        str(keyboard.KeyCode.from_vk(98)): 'NUM2',
-        str(keyboard.KeyCode.from_vk(99)): 'NUM3',
-        str(keyboard.KeyCode.from_vk(100)): 'NUM4',
-        str(keyboard.KeyCode.from_vk(101)): 'NUM5',
-        str(keyboard.KeyCode.from_vk(102)): 'NUM6',
-        str(keyboard.KeyCode.from_vk(103)): 'NUM7',
-        str(keyboard.KeyCode.from_vk(104)): 'NUM8',
-        str(keyboard.KeyCode.from_vk(105)): 'NUM9',
-        'Key.enter': 'Return',
-        'Key.space': 'space',
-        'Key.f1': 'F1',
-        'Key.f2': 'F2',
-        'Key.f3': 'F3',
-        'Key.f4': 'F4',
-        'Key.f5': 'F5',
-        'Key.f6': 'F6',
-        'Key.f7': 'F7',
-        'Key.f8': 'F8',
-        'Key.f9': 'F9',
-        'Key.f10': 'F10',
-        'Key.f11': 'F11',
-        'Key.f12': 'F12',
-        'Key.scroll_lock': 'Scroll_Lock',
-    }
-
-    def __init__(self, tree):
-        # print(self._keyDict)
-        self.start = None
-        self.startPress = None
-        self.thread = None
-        self.pressed = []
-        self.keycode = keyboard.KeyCode
-        self.recording = False
-        self.lastRow = []
-
-        self.tree = tree
-
-    def startRecordingThread(self):
-        self.recording = True
-
-        # create new thread for recording so as to not disturb the autoclicker window
-        threadRecordingFlag = threading.Event()
-        self.thread = threading.Thread(target=self.record)
-        self.thread.threadFlag = threadRecordingFlag
-        self.thread.start()
-
-    def stopRecordingThread(self):
-        # print("stopRecordingThread")
-        self.tree.startButton.config(state=NORMAL)
-        self.tree.recordButton.configure(style="")
-
-        if self.thread:
-            self.thread.threadFlag.set()
-            self.thread.join(1)
-            self.listener.stop
- 
-        self.recording = False
-        self.tree.exportMacro()
-
-    def record(self):
-        # start listening
-        self.tree.recordButton.configure(style="Accent.TButton")
-        # self.listener = Listener(on_press=self.__recordPress, on_release=self.__recordRelease)
-        with Listener(on_press=self.__recordPress, on_release=self.__recordRelease) as listener:
-            try:
-                self.listener = listener
-                self.listener.join()
-            except Exception as ex:
-                print('{0} was pressed'.format(ex.args[0]))
-        # self.listener.start()
-
-    def __recordPress(self, key):
-        # log time ASAP for accuracy
-        tempTime = time.time()
-        # if self.startPress is not None:
-        #     print(int((time.time() - self.startPress) * 1000))
-
-        if self.thread.threadFlag.is_set():
-            return False
-
-        # if key.char exists use that, else translate to pyautogui keys
-        try:
-            if key.char is not None:
-                key = key.char
-            else:
-                try:
-                    key = self._keyDict[str(key)]
-                except KeyError:
-                    key = str(key)
-        except AttributeError:
-            try:
-                key = self._keyDict[str(key)]
-            except KeyError:
-                key = str(key)
-
-        # ignore if key already pressed
-        if key in self.pressed:
-            return
-
-        # if startTime is set then this is not first key press in recording
-        # must fill in wait time between
-
-        # only add row on press if more than one key now being pressed, thus ending the prior action
-        if len(self.pressed) > 0:
-            # print("New press: " + self.pressed)
-            # other keys are already pressed
-            # if int((time.time() - self.startPress) * 1000) < 1:
-            # key was pressed close to prior press, merge with prior
-            # p = 0 # TODO edit prior row adding this time to that delay and skip this new press
-            # else:
-            self.__addRow(0, 0, "_" + "|".join(self.pressed), int((time.time() - self.startPress) * 1000))
-        elif self.startPress is not None:
-            # if startTime is set then this is not first key press in recording
-            # must fill in wait time between last press and new press
-
-            if self.lastRow[2][0] == '_':
-                # last row was hold so add row to account for delay
-                self.__addRow(0, 0, "", int((time.time() - self.startPress) * 1000))
-            else:
-                # last row was not hold so edit last row to change delay
-                # print("change: " + str(len(self.treeView.get_children())))
-                # print(int((time.time() - self.startPress) * 1000))
-                self.__changeRow(len(self.treeView.get_children()) - 1, 0, 0, self.lastRow[2], int((time.time() - self.startPress) * 1000))
-
-        # key is being pressed, add to array and log time
-        self.startPress = tempTime
-        self.pressed.append(str(key))
-        # print("{0}Down ".format(str(format(key))))
-
-    def __recordRelease(self, key):
-        # check how long key was pressed ASAP
-        pressTime = int((time.time() - self.startPress) * 1000)
-        # start new timer for next action's delay
-        self.startPress = time.time()
-
-        if self.thread.threadFlag.is_set():
-            return False
-
-        # if key.char exists use that, else translate to pyautogui keys
-        try:
-            if key.char is not None:
-                key = key.char
-            else:
-                try:
-                    key = self._keyDict[str(key)]
-                except KeyError:
-                    key = str(key)
-        except AttributeError:
-            try:
-                key = self._keyDict[str(key)]
-            except KeyError:
-                key = str(key)
-
-        i = 0
-        for keyPressed in self.pressed:
-            if key == keyPressed:
-                # if pressTime < 35:
-                #     # Short press, consider it not a hold
-                #     self.__addRow(0, 0, key, pressTime)
-                # else:
-                # Longer press, consider it a hold
-                self.__addRow(0, 0, "_" + "|".join(self.pressed), pressTime)
-                self.pressed.pop(i)
-            i += 1
-
-        # print("{0} Release".format(key))
-
-    def __addRow(self, x, y, key, delay):
-        self.lastRow = [x, y, key, delay]
-        self.tree.addRowWithParams(x, y, key, delay, "")
-
-    def __changeRow(self, row, x, y, key, delay):
-        self.lastRow = [x, y, key, delay]
-        self.tree.overwriteRow(row, x, y, key, delay, "")
 
 
 def main():
+    tracemalloc.start() 
     root = tk.Tk()
-    root.tk.call('source', r'C:\Users\cgkna\Documents\GitHub\StickysAutoClicker\StickysAutoClicker\sun-valley.tcl')
+    root.tk.call('source', resource_path("") + r'Resources\theme\sun-valley.tcl')
     root.tk.call("set_theme", "dark")
 
     global STICKY_ICON

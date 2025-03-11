@@ -16,7 +16,7 @@ namespace eval ttk::theme::sun-valley-dark {
                 [image create photo -file $file -format png]
             }
         }
-        load_images [file join [file dirname [info script]] dark]
+        load_images [file join [file dirname [info script]] ]
 
         array set colors {
             -fg             "#ffffff"
