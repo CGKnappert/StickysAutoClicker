@@ -72,14 +72,15 @@ This program is only intended to be built and run on windows machines due to scr
 
 Python version 3.0 or greater required.
 
-There are a fair number of dependencies needed to install before the python file will build:
+There are a fair number of dependencies needed to install before the python file will build. They can be found in the requirements.txt file and installed with the command: pip install -r requirements.txt
 
 
 ### Installation
 
 Releases are built into a single file executable so nothing more is required then the file itself.
 
-Necessary folder will be created if it your first time running the program. They can be found in 
+Necessary folders will be created if it your first time running the program. They are located in the C:\Users\~user~\Documents\StickysAutoClicker\ folder.
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -88,11 +89,13 @@ Necessary folder will be created if it your first time running the program. They
 <!-- USAGE -->
 ## Usage
 
-Sticky's Autoclicker is an auto clicker like many others but using rescursion with some classic python functionality it brings it's abilities to new heights.
+Sticky's Autoclicker is an autoclicker like many others but using rescursion with some classic python functionality it brings it's abilities to new heights.
 
-Like most autoclickers it takes coordinates and mouse buttons or keys and will exsecute them in the given order with delays.
+Like most autoclickers it takes coordinates and mouse buttons or keys and will execute them in the given order with delays. But that's not all...
 
 Read below to explore just how much it can do!
+
+
 
 ### Buttons
 ![Sticky Diagram](./Resources/StickysAutoclickerDiagram.png)
@@ -103,6 +106,10 @@ The **Choose Position** button will set X and Y fields into search so they will 
 
 **Overwrite** will set all selected rows to the current X, Y, delay, action and comment values.
 
+By right clicking in the macro steps table you can Close a macro tab, add a new macro, select all the rows, move the selected rows up or down, remove the selected rows or overwrite them with the specified values. Know that you can use Shift + click and Ctrl + click to select and edit multiple rows at a time! This is incredibly handy when needing to move one row up many times, you can instead select all the rows above that a new row should move past and move those down instead. That will push the bottom row up many rows at once!
+
+
+
 ### The GUI
 The window itself is resizeable to accomodate larger and longer macros (sorry for the lag on resizing).
 Columns in the table are resizeable in case your actions or comments are longer.
@@ -112,9 +119,11 @@ The macro tabs are draggable to allow you to keep them organized.
 
 Once a macro start the running row is highlights in orange and the running tab is opened with a #TODO.
 
-Upon closing the program it will save your open tabs and their order so that when the program is re-opened you can pick up exactly where you left off.
-It also saves the position of the window upon closing and will reopen where it was before.
-The amount in **Click Loops** is saved upon each change for each macro and loaded upon tab change. I found that macros varied greatly in the amount of loops I needed from them and I got tired of changing the Clock Loops so often so I hope you find this as helpful as I do.
+Upon closing the program it will save your open tabs and their order so that when the program is re-opened they are the same as when you left off.
+It also saves the position of the window upon closing and will reopen to where it was before.
+The amount in **Click Loops** is saved upon each change for each macro and loaded upon tab change. I found that macros varied greatly in the amount of loops I needed from them and I got tired of changing the Click Loops so often so I hope you find this as helpful as I do.
+
+
 
 ### Clicks and Keys
 The three mouse clicks and all major keystrokes are recognized as valid **Action** inputs and will execute when specified.
@@ -149,20 +158,20 @@ Action also allows underscore _ as a special character that will indicate the fo
         
 
 
-### Special Keys
-Shift + LCtrl + ` will set loops to 0 and stop the autoclicker immediately.
-
-Shift + LCtrl + Tab will pause the autoclicker and pressing that key combination again will start the autoclicker where it left off.
- - Remember you might need to focus back on the application to be clicked or key pressed before starting again.
-
-
-
 ### Macros
 Macros are exported as .csv files that are written to folder ~\StickyAutoClicker\Macros\ in your Documents folder. 
 
 Exported macro files are kept up to date with each edit created so no progress is ever lost.
 
 Import expects a comma separated file with no headers and only five columns: X, Y, Action, Delay, and Comment. If you find it easier you can edit the csv files directly! Just be careful having the file open in the autoclicker at the same time as the program writes to the file each time a new macro tab is selected.
+
+
+
+### Special Keys
+Shift + LCtrl + ` will set loops to 0 and stop the autoclicker immediately.
+
+Shift + LCtrl + Tab will pause the autoclicker and pressing that key combination again will start the autoclicker where it left off.
+ - Remember you might need to focus back on the application to be clicked or key pressed before starting again.
 
 
 
@@ -176,17 +185,19 @@ The Record functionality will begin entering rows to the end of the current macr
 
 
 ### Settings
-Use Busy Wait - Uses the CPU heavy busy wait for most accurate delay and key holds. Best to when you want to recreate the most accurate recording for consistency. 
+**Use Busy Wait** - Uses the CPU heavy busy wait for most accurate delay and key holds. Best to when you want to recreate the most accurate recording for consistency. 
 
-Start From Selected Row - Will begin a macro from the first selected row. This is useful when a long macro messes up and you canno start from the top and need to start midway through a macro.
+**Start From Selected Row** - Will begin a macro from the first selected row. This is useful when a long macro messes up and you cannot start from the top and need to start midway through a macro.
 
-Application Selector - Is in progress functionality intended to find an application's windows and then will apply a macro directly to that window. My hope was that it could run on windows not in focur or minimized but it appears this is nearly impossible for Python to do in windows. (Please contact me if you know how to do this!)
+**Application Selector** - Is in progress functionality intended to find an application's windows and then will apply a macro directly to that window. My hope was that it could run on windows not in focus or minimized but it appears this is nearly impossible for Python to do in Windows. (Please contact me if you know how to do this!)
 
-Stay On Top - Forces the autoclicker to the foreground. When off this window will act like any other, allowing other windows to cover it up.
+**Stay On Top** - Forces the autoclicker to the foreground. When off this window will act like any other, allowing other windows to cover it up.
 
-Use Hidden Mode - Is also in progress functionality that intends to allow the clicker to send clicks and keystrokes to applications without interrupting or commandeering you keyboard and mouse. This too is quite difficult to do in Python. 
+**Developer Mode** - Prints memory usage to Log Window upon opening.
 
-Loops By Macro - Enables the program to save the amount of loops entered into Clock Loops for each macro. It will then load that amount of loops each time a new macro tab is selected.
+**Use Hidden Mode** - (Currently removed) Is also in progress functionality that intends to allow the clicker to send clicks and keystrokes to applications without interrupting or commandeering you keyboard and mouse. This too is quite difficult to do in Python. 
+
+**Loops By Macro** - Enables the program to save the amount of loops entered into Click Loops for each macro. It will then load that amount of loops each time a new macro tab is selected.
 
 
 
