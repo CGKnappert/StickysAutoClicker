@@ -1,10 +1,10 @@
 <div align="center">
-
-  
-
-  <h3 align="center">Sticky's Autoclicker</h3>
+  <h1 align="center">Sticky's Autoclicker</h1>
 
   <p align="center">A powerful autoclicker with infinite recursion!</p>
+
+  
+![Sticky Icon](./Resources/StickySDCropped.png)
 </div>
 
 <!-- TABLE OF CONTENTS -->
@@ -17,7 +17,7 @@
     <li>
       <a href="#getting-started">Getting Started</a>
       <ul>
-        <li><a href="#prerequisites">Pre-requisites</a></li>
+        <li><a href="#pre-requisites">Pre-requisites</a></li>
         <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
@@ -25,13 +25,13 @@
       <a href="#usage">Usage</a>
       <ul>
         <li><a href="#buttons">Buttons</a></li>
-        <li><a href="#thegui">The GUI</a></li>
-        <li><a href="#clicksandkeys">Clicks and Keys</a></li>
-        <li><a href="#specialkeys">Special Keys</a></li>
+        <li><a href="#the-gui">The GUI</a></li>
+        <li><a href="#clicks-and-keys">Clicks and Keys</a></li>
+        <li><a href="#special-keys">Special Keys</a></li>
         <li><a href="#macros">Macros</a></li>
         <li><a href="#recording">Recording</a></li>
         <li><a href="#settings">Settings</a></li>
-        <li><a href="#logwindow">Log Window</a></li>
+        <li><a href="#log-window">Log Window</a></li>
       </ul>
     </li>
     <li>
@@ -45,7 +45,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-![image](https://github.com/user-attachments/assets/e1778870-787a-4541-82a4-5ba28f44bc57)
+![Sticky Image](./Resources/StickysAutoclickerImage.png)
 
 Because clicking is hard and my fingers get tired I decided to write an autoclicker that can help automate repetitive processes.
 
@@ -53,7 +53,7 @@ Over the last few years my needs and laziness has grown and so this autoclicker'
 
 I hope many others can find this project useful in both their professional and gaming lives.
 
-Download the latest release to ![Clear-Start Clicking](https://github.com/user-attachments/assets/e6e38c70-dce2-4fb1-bb5c-1b547abe0984)
+Download the latest release to ![Start Clicking](./Resources/StartClicking.png)
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -95,7 +95,7 @@ Like most autoclickers it takes coordinates and mouse buttons or keys and will e
 Read below to explore just how much it can do!
 
 ### Buttons
-![image](https://github.com/user-attachments/assets/545ea675-c015-4fa2-817c-3859b6fb9dd3)
+![Sticky Diagram](./Resources/StickysAutoclickerDiagram.png)
 
 The **Insert Position** button will insert a new row at the bottom of the currently selected macro with the set values: X and Y positions, delay, action and comment.
 
