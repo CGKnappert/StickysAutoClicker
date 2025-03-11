@@ -17,7 +17,7 @@
     <li>
       <a href="#getting-started">Getting Started</a>
       <ul>
-        <li><a href="#pre-requisites">Pre-requisites</a></li>
+        <li><a href="#developer-setup">Developer Setup</a></li>
         <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
@@ -66,7 +66,7 @@ Download the latest release to ![Start Clicking](./Resources/StartClicking.png)
 If you would like to build this locally it is quite easy to setup, just follow the below steps.
 
 
-### Pre-requisites
+### Developer Setup
 
 This program is only intended to be built and run on windows machines due to screenshotting, keyboard and mouse input and monitor recognition dependancies.
 
@@ -79,7 +79,7 @@ There are a fair number of dependencies needed to install before the python file
 
 Releases are built into a single file executable so nothing more is required then the file itself.
 
-Necessary folders will be created if it your first time running the program. They are located in the C:\Users\~user~\Documents\StickysAutoClicker\ folder.
+Necessary folders will be created if it your first time running the program. They are located in the C:\Users\Username\Documents\StickysAutoClicker\ folder.
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
